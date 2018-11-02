@@ -1,0 +1,9 @@
+/rebar3
+.rebar
+.idea
+.vscode
+_build
+*.iml
+*.dump
+c_src/*.o
+priv/*.so

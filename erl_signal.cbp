@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="erl_signal" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Debug/erl_signal" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option output="bin/Release/erl_signal" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+		</Compiler>
+		<Unit filename="c_src/Makefile" />
+		<Unit filename="c_src/axc.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/axc.h" />
+		<Unit filename="c_src/axc_crypto.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/axc_crypto.h" />
+		<Unit filename="c_src/axc_crypto.o" />
+		<Unit filename="c_src/axc_store.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/axc_store.h" />
+		<Unit filename="c_src/erl_signal.cpp" />
+		<Unit filename="c_src/erl_signal.hpp" />
+		<Unit filename="c_src/erl_signal_nif.cpp" />
+		<Unit filename="c_src/erl_signal_nif.o" />
+		<Unit filename="c_src/libsignal-c/CMakeLists.txt" />
+		<Unit filename="c_src/libsignal-c/FingerprintProtocol.pb-c.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/FingerprintProtocol.pb-c.h" />
+		<Unit filename="c_src/libsignal-c/LocalStorageProtocol.pb-c.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/LocalStorageProtocol.pb-c.h" />
+		<Unit filename="c_src/libsignal-c/WhisperTextProtocol.pb-c.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/WhisperTextProtocol.pb-c.h" />
+		<Unit filename="c_src/libsignal-c/curve.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/CMakeLists.txt" />
+		<Unit filename="c_src/libsignal-c/curve25519/curve25519-donna.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/curve25519-donna.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/compare.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/compare.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/crypto_additions.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/crypto_hash_sha512.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/curve_sigs.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/curve_sigs.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/elligator.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/fe_isequal.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/fe_isreduced.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/fe_mont_rhs.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/fe_montx_to_edy.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/fe_sqrt.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/ge_isneutral.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/ge_montx_to_p3.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/ge_neg.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/ge_p3_to_montx.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/ge_scalarmult.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/ge_scalarmult_cofactor.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/ge_p3_add.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/gen_constants.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/gen_crypto_additions.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/gen_eddsa.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/gen_eddsa.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/gen_labelset.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/gen_labelset.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/gen_veddsa.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/gen_veddsa.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/gen_x.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/gen_x.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/point_isreduced.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/generalized/sc_isreduced.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/keygen.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/keygen.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/open_modified.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/sc_clamp.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/sc_cmov.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/sc_neg.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/sign_modified.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/utility.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/utility.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/xeddsa.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/xeddsa.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/zeroize.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/additions/zeroize.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/base.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/base2.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/d.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/d2.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_0.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_1.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_add.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_cmov.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_copy.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_frombytes.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_invert.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_isnegative.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_isnonzero.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_mul.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_neg.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_pow22523.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_sq.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_sq2.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_sub.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/fe_tobytes.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_add.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_add.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_double_scalarmult.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_frombytes.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_madd.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_madd.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_msub.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_msub.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_p1p1_to_p2.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_p1p1_to_p3.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_p2_0.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_p2_dbl.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_p2_dbl.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_p3_0.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_p3_dbl.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_p3_to_cached.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_p3_to_p2.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_p3_tobytes.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_precomp_0.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_scalarmult_base.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_sub.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_sub.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/ge_tobytes.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/nacl_includes/crypto_int32.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/nacl_includes/crypto_int64.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/nacl_includes/crypto_sign.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/nacl_includes/crypto_sign_edwards25519sha512batch.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/nacl_includes/crypto_uint32.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/nacl_includes/crypto_uint64.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/nacl_includes/crypto_verify_32.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/nacl_sha512/blocks.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/nacl_sha512/hash.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/open.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/pow22523.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/pow225521.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/sc.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/sc_muladd.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/sc_reduce.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/sign.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/sqrtm1.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/tests/internal_fast_tests.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/tests/internal_fast_tests.h" />
+		<Unit filename="c_src/libsignal-c/curve25519/ed25519/tests/internal_slow_tests.h" />
+		<Unit filename="c_src/libsignal-c/device_consistency.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/device_consistency.h" />
+		<Unit filename="c_src/libsignal-c/fingerprint.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/fingerprint.h" />
+		<Unit filename="c_src/libsignal-c/group_cipher.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/group_cipher.h" />
+		<Unit filename="c_src/libsignal-c/group_session_builder.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/group_session_builder.h" />
+		<Unit filename="c_src/libsignal-c/hkdf.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/hkdf.h" />
+		<Unit filename="c_src/libsignal-c/key_helper.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/key_helper.h" />
+		<Unit filename="c_src/libsignal-c/libsignal-protocol-c.pc.in" />
+		<Unit filename="c_src/libsignal-c/protobuf-c/CMakeLists.txt" />
+		<Unit filename="c_src/libsignal-c/protobuf-c/protobuf-c.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/protobuf-c/protobuf-c.h" />
+		<Unit filename="c_src/libsignal-c/protocol.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/protocol.h" />
+		<Unit filename="c_src/libsignal-c/ratchet.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/ratchet.h" />
+		<Unit filename="c_src/libsignal-c/sender_key.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/sender_key.h" />
+		<Unit filename="c_src/libsignal-c/sender_key_record.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/sender_key_record.h" />
+		<Unit filename="c_src/libsignal-c/sender_key_state.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/sender_key_state.h" />
+		<Unit filename="c_src/libsignal-c/session_builder.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/session_builder.h" />
+		<Unit filename="c_src/libsignal-c/session_builder_internal.h" />
+		<Unit filename="c_src/libsignal-c/session_cipher.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/session_cipher.h" />
+		<Unit filename="c_src/libsignal-c/session_pre_key.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/session_pre_key.h" />
+		<Unit filename="c_src/libsignal-c/session_record.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/session_record.h" />
+		<Unit filename="c_src/libsignal-c/session_state.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/session_state.h" />
+		<Unit filename="c_src/libsignal-c/signal_protocol.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/signal_protocol.h" />
+		<Unit filename="c_src/libsignal-c/signal_protocol_internal.h" />
+		<Unit filename="c_src/libsignal-c/signal_protocol_types.h" />
+		<Unit filename="c_src/libsignal-c/signal_utarray.h" />
+		<Unit filename="c_src/libsignal-c/utarray.h" />
+		<Unit filename="c_src/libsignal-c/uthash.h" />
+		<Unit filename="c_src/libsignal-c/utlist.h" />
+		<Unit filename="c_src/libsignal-c/vpool.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="c_src/libsignal-c/vpool.h" />
+		<Unit filename="c_src/message_client.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="libs/libsignal-protocol-c/src/curve25519/ed25519/tests/internal_slow_tests.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Extensions>
+			<code_completion />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
