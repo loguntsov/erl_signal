@@ -54,10 +54,10 @@ int esc_db_property_set(const char * name, const int val, esc_context * esc_ctx_
     return 0;
 }
 
-int esc_db_property_get(const char * name, uint32_t * val_p, esc_context * esc_ctx_p) {
+int esc_db_property_get(const char * name, int * val_p, esc_context * esc_ctx_p) {
   const esc_storage::row row = esc_ctx_p->settings->get(std::string(name));
   esc_storage::value value = row.get(esc_storage::column("p"), "0");
-  *val_p = (uint32_t) std::stoi(value);
+  *val_p = std::stoi(value);
   return 0;
 }
 
@@ -359,7 +359,7 @@ cleanup:
   db_conn_cleanup(db_p, pstmt_p, err_msg, __func__, esc_ctx_p);
   return ret_val;
   */
- return 0;
+ return -1;
 }
 
 int esc_db_pre_key_contains(uint32_t pre_key_id, void * user_data) {
@@ -612,7 +612,7 @@ int esc_db_identity_set_local_registration_id(const uint32_t reg_id, void * user
 
 int esc_db_identity_get_local_registration_id(void * user_data, uint32_t * registration_id) {
   esc_context * esc_ctx_p = (esc_context *) user_data;    
-  return (esc_db_property_get(REG_ID_NAME, registration_id, esc_ctx_p )) ? -1 : 0;  
+  return (esc_db_property_get(REG_ID_NAME, (int *) registration_id, esc_ctx_p ) != 0) ? -1 : 0;  
 }
 
 int esc_db_identity_save(const signal_protocol_address * addr_p, uint8_t * key_data, size_t key_len, void * user_data) {

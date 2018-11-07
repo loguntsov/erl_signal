@@ -1,6 +1,6 @@
 # Based on c_src.mk from erlang.mk by Loic Hoguin <essen@ninenines.eu>
 
-PROJECT := erl_signal
+PROJECT := erl_signal_nif
 
 CURDIR := $(shell pwd)
 BASEDIR := $(abspath $(CURDIR)/..)
@@ -13,7 +13,7 @@ ERL_INTERFACE_INCLUDE_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(
 ERL_INTERFACE_LIB_DIR ?= $(shell erl -noshell -s init stop -eval "io:format(\"~ts\", [code:lib_dir(erl_interface, lib)]).")
 
 C_SRC_DIR = $(CURDIR) $(CURDIR)/libsignal-c
-C_SRC_OUTPUT ?= $(CURDIR)/../priv/$(PROJECT)
+C_SRC_OUTPUT ?= $(CURDIR)/../priv/$(PROJECT).so
 
 # System type and C compiler/flags.
 
@@ -36,8 +36,14 @@ endif
 CFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR) -I /usr/include/glib-2.0 -I /usr/lib/x86_64-linux-gnu/glib-2.0/include -I /usr/include/c++/6/ -I /usr/include/x86_64-linux-gnu/c++/6/
 CXXFLAGS += -fPIC -I $(ERTS_INCLUDE_DIR) -I $(ERL_INTERFACE_INCLUDE_DIR) -I /usr/include/glib-2.0 -I /usr/lib/x86_64-linux-gnu/glib-2.0/include -I /usr/include/c++/6/ -I /usr/include/x86_64-linux-gnu/c++/6/
 
+LDLIBS += -L ../libs/cJSON 
+LDLIBS += -L ../libs/libsignal-protocol-c/build/src -lsignal-protocol-c
 LDLIBS += -L $(ERL_INTERFACE_LIB_DIR) -lerl_interface -lei
-# LDFLAGS += -shared
+LDLIBS += -L /usr/lib32 -lgcrypt
+# LDLIBS += -L /usr/lib32 -lglib
+
+
+LDFLAGS += -shared
 
 # Verbosity.
 
@@ -52,11 +58,13 @@ link_verbose = $(link_verbose_$(V))
 
 SOURCES := $(shell find $(C_SRC_DIR) -type f \( -name "*.c" -o -name "*.C" -o -name "*.cc" -o -name "*.cpp" \))
 OBJECTS = $(addsuffix .o, $(basename $(SOURCES)))
+# OBJECTS += $(shell find ../libs/libsignal-protocol-c/build/src -type f \( -name "*.o" \))
+
 
 COMPILE_C = CPATH=CPATH:libsignal-c $(c_verbose) $(CC) $(CFLAGS) $(CPPFLAGS) -c
 COMPILE_CPP = $(cpp_verbose) $(CXX) $(CXXFLAGS) $(CPPFLAGS) -c
 
-$(C_SRC_OUTPUT): $(OBJECTS)
+$(C_SRC_OUTPUT): Makefile $(OBJECTS)
 	@mkdir -p $(BASEDIR)/priv/
 	$(link_verbose) g++ $(OBJECTS) $(LDFLAGS) $(LDLIBS) -o $(C_SRC_OUTPUT)
 

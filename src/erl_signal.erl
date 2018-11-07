@@ -1,33 +1,38 @@
 -module(erl_signal).
 
+-include("erl_signal.hrl").
+
 -export([
-    new/1,
-    encode/2
+    new/0,
+    generate_identity_keys/1,
+    is_session_exists_initiated/2, 
+    handshake_initiate/2,
+    handshake_accept/3,
+    handshake_acknowledge/3,
+    encode/3, decode/3
 ]).
 
--on_load(init/0).
+new() ->
+    erl_signal_nif:new().
 
--callback init() -> ok.
--callback session_store
+generate_identity_keys(Session) ->
+        erl_signal_nif:generate_identity_keys(Session).
 
-init() ->
-    SoName = case code:priv_dir(erl_signal) of
-        {error, bad_name} ->
-            case code:which(?MODULE) of
-                Filename when is_list(Filename) ->
-                    filename:join([filename:dirname(Filename),"../priv", "erl_signal"]);
-                _ ->
-                    filename:join("../priv", "erl_signal")
-            end;
-        Dir ->
-            filename:join(Dir, "erl_signal")
-    end,
-    erlang:load_nif(SoName, 0).
+is_session_exists_initiated(Session, MyAddress) when is_reference(Session), ?IS_ES_ADDRESS(MyAddress) ->
+    erl_signal_nif:is_session_exists_initiated(Session, MyAddress).
 
--spec new(Key :: binary()) -> { ok, Object :: reference() }.
-new(_Key) ->
-    erlang:nif_error({error, not_loaded}).
+handshake_initiate(Session, ToAddress) when is_reference(Session), ?IS_ES_ADDRESS(ToAddress) ->
+    erl_signal_nif:handshake_initiate(Session, ToAddress).
 
--spec encode(Object :: reference(), Buffer :: binary()) -> NewBuffer :: binary().
-encode(_Ref, _Binary) ->
-    erlang:nif_error({error, not_loaded}).
+
+handshake_accept(Session, FromAddress, Handshake) when is_reference(Session), ?IS_ES_ADDRESS(FromAddress), is_binary(Handshake) -> 
+    erl_signal_nif:handshake_accept(Session, FromAddress, Handshake).
+
+handshake_acknowledge(Session, MyHandshake, AcceptedHandshake) when is_reference(Session), ?IS_ES_HANDSHAKE(MyHandshake), is_binary(AcceptedHandshake) ->
+    erl_signal_nif:handshake_acknowledge(Session, MyHandshake, AcceptedHandshake).
+
+encode(Session, ToAddress, Binary) when is_reference(Session), ?IS_ES_ADDRESS(ToAddress), is_binary(Binary) ->
+    erl_signal_nif:encode(Session, ToAddress, Binary).
+
+decode(Session, FromAddress, Binary) when is_reference(Session), ?IS_ES_ADDRESS(FromAddress), is_binary(Binary) ->
+    erl_signal_nif:decode(Session, FromAddress, Binary).

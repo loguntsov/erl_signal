@@ -1,6 +1,6 @@
 {application, erl_signal, [
   {description, "Erlang binding for libsignal-c"},
-  {vsn, "1"},
+  {vsn, "0.1"},
   {registered, []},
   {applications, [
     kernel,

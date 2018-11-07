@@ -17,8 +17,8 @@ typedef signal_buffer esc_buf;
 typedef signal_protocol_address esc_address;
 
 struct esc_context {
-    signal_context * axolotl_global_context_p = NULL;
-    signal_protocol_store_context * axolotl_store_context_p = NULL;
+    signal_context * global_context_p = NULL;
+    signal_protocol_store_context * store_context_p = NULL;
     esc_mutexes * mutexes_p = NULL;
     esc_storage * session_store = NULL;
     esc_storage * pre_key_store = NULL;
@@ -131,6 +131,14 @@ void esc_bundle_destroy(esc_bundle * bundle_p);
  * @return 0 on success, negative on failure
  */
 int esc_init(esc_context * ctx_p);
+
+/**
+ * Generates identity keys and store them in internal storage
+ * 
+ * @param ctx_p A pointer to an already created axc context.
+ * @return 0 on success, negative on failure
+ */
+int esc_generate_identity_keys(esc_context * ctx_p);
 
 /**
  * Destroys mutexes and axolotl contexts saved in the axc context.

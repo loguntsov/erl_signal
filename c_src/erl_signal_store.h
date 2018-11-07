@@ -30,7 +30,7 @@ void esc_db_pre_key_destroy_ctx(void *user_data);
  * @param pre_keys_head Pointer to the first element of the list.
  * @param user_data_p Optional. The user_data as received from the axolotl interface, will be used to set the database name.
  */
-int esc_db_pre_key_store_list(signal_protocol_key_helper_pre_key_list_node * pre_keys_head, esc_context * ctx_p);
+int esc_db_pre_key_store_list(signal_protocol_key_helper_pre_key_list_node * pre_keys_head, void * user_data);
 
 /**
  * Gets the specified number of pre keys for publishing, i.e. only their public part.
@@ -84,7 +84,7 @@ void esc_db_identity_destroy_ctx(void *user_data);
  * @param esc_ctx_p Pointer to the axc context.
  * @return 0 on success, negative on error
  */
-int esc_db_identity_set_key_pair(const ratchet_identity_key_pair * key_pair_p, esc_context * esc_ctx_p);
+int esc_db_identity_set_key_pair(const ratchet_identity_key_pair * key_pair_p, void * user_data);
 
 /**
  * Saves the axolotl registration ID which was obtained by a call to axolotl_key_helper_generate_registration_id().
@@ -93,7 +93,7 @@ int esc_db_identity_set_key_pair(const ratchet_identity_key_pair * key_pair_p, e
  * @param esc_ctx_p Pointer to the axc context.
  * @return 0 on success, negative on error
  */
-int esc_db_identity_set_local_registration_id(const uint32_t reg_id, esc_context * esc_ctx_p);
+int esc_db_identity_set_local_registration_id(const uint32_t reg_id, void * user_data);
 
 // other
 /**

@@ -6,6 +6,7 @@
 #include <map>
 
 
+
 #include "cJSON/cJSON.h"
 
 class esc_storage {
@@ -33,7 +34,7 @@ class esc_storage {
     private:
         storage data;
     protected:
-        bool is_changed = false;        
+        bool is_changed = false;                
     public:
         esc_storage();
         ~esc_storage();

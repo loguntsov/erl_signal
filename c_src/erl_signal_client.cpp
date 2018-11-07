@@ -21,6 +21,9 @@
 #include "erl_signal_client.h"
 #include "erl_signal_store.h"
 #include "erl_signal_crypto.h"
+#include "erl_signal_client_storage.h"
+
+#include <ctime>
 
 void recursive_mutex_lock(void * user_data);
 void recursive_mutex_unlock(void * user_data);
@@ -113,7 +116,7 @@ int esc_bundle_collect(size_t n, esc_context * ctx_p, esc_bundle ** bundle_pp) {
   }
   bundle_p->pre_keys_head_p = pre_key_list_p;
 
-  ret_val = signal_protocol_signed_pre_key_load_key(ctx_p->axolotl_store_context_p, &signed_prekey_p, signed_prekey_id);
+  ret_val = signal_protocol_signed_pre_key_load_key(ctx_p->store_context_p, &signed_prekey_p, signed_prekey_id);
   if (ret_val) {
     err_msg = "failed to get signed pre key";
     goto cleanup;
@@ -137,7 +140,7 @@ int esc_bundle_collect(size_t n, esc_context * ctx_p, esc_bundle ** bundle_pp) {
   }
   bundle_p->signed_pre_key_signature_p = signed_prekey_signature_data_p;
 
-  ret_val = signal_protocol_identity_get_key_pair(ctx_p->axolotl_store_context_p, &identity_key_pair_p);
+  ret_val = signal_protocol_identity_get_key_pair(ctx_p->store_context_p, &identity_key_pair_p);
   if (ret_val) {
     err_msg = "failed to retrieve identity key pair";
     goto cleanup;
@@ -334,6 +337,12 @@ int esc_context_create(esc_context ** ctx_pp) {
 
   ctx_p->log_level = -1;
 
+  ctx_p->pre_key_store = new esc_storage();
+  ctx_p->session_store = new esc_storage();
+  ctx_p->signed_pre_key_store = new esc_storage();
+  ctx_p->identity_key_store = new esc_storage();  
+  ctx_p->settings = new esc_storage();
+
   *ctx_pp = ctx_p;
   return 0;
 }
@@ -362,19 +371,21 @@ int esc_context_get_log_level(esc_context * ctx_p) {
 }
 
 signal_context * esc_context_get_axolotl_ctx(esc_context * ctx_p) {
-  return ctx_p != NULL ? ctx_p->axolotl_global_context_p : NULL;
+  return ctx_p != NULL ? ctx_p->global_context_p : NULL;
 }
 
 void esc_context_destroy_all(esc_context * ctx_p) {
-/**
   if (ctx_p) {
-    signal_context_destroy(ctx_p->axolotl_global_context_p);
-    signal_protocol_store_context_destroy(ctx_p->axolotl_store_context_p);
-    esc_mutexes_destroy(ctx_p->mutexes_p);
+    delete ctx_p->pre_key_store;
+    delete ctx_p->session_store;
+    delete ctx_p->signed_pre_key_store;
+    delete ctx_p->identity_key_store;
+    delete ctx_p->settings;
 
-    free(ctx_p->db_filename);
-  }
-**/  
+    signal_context_destroy(ctx_p->global_context_p);
+    signal_protocol_store_context_destroy(ctx_p->store_context_p);
+    esc_mutexes_destroy(ctx_p->mutexes_p);
+  }  
 }
 
 void recursive_mutex_lock(void * user_data) {
@@ -480,14 +491,14 @@ int esc_init(esc_context * ctx_p) {
 
   // axolotl lib init
   // 1. create global context
-  if (signal_context_create(&(ctx_p->axolotl_global_context_p), ctx_p)) {
+  if (signal_context_create(&(ctx_p->global_context_p), ctx_p)) {
     err_msg = "failed to create global axolotl context";
     ret_val = -1;
     goto cleanup;
   }
   esc_log(ctx_p, ESC_LOG_DEBUG, "%s: created and set axolotl context", __func__);
 
-  if (signal_context_set_crypto_provider(ctx_p->axolotl_global_context_p, &crypto_provider)) {
+  if (signal_context_set_crypto_provider(ctx_p->global_context_p, &crypto_provider)) {
     err_msg = "failed to set crypto provider";
     ret_val = -1;
     goto cleanup;
@@ -496,7 +507,7 @@ int esc_init(esc_context * ctx_p) {
 
   // 3. set locking functions
   #ifndef NO_THREADS
-  if (signal_context_set_locking_functions(ctx_p->axolotl_global_context_p, recursive_mutex_lock, recursive_mutex_unlock)) {
+  if (signal_context_set_locking_functions(ctx_p->global_context_p, recursive_mutex_lock, recursive_mutex_unlock)) {
     err_msg = "failed to set locking functions";
     ret_val = -1;
     goto cleanup;
@@ -506,7 +517,7 @@ int esc_init(esc_context * ctx_p) {
 
   // init store context
 
-  if (signal_protocol_store_context_create(&store_context_p, ctx_p->axolotl_global_context_p)) {
+  if (signal_protocol_store_context_create(&store_context_p, ctx_p->global_context_p)) {
     err_msg = "failed to create store context";
     ret_val = -1;
     goto cleanup;
@@ -538,7 +549,7 @@ int esc_init(esc_context * ctx_p) {
     goto cleanup;
   }
 
-  ctx_p->axolotl_store_context_p = store_context_p;
+  ctx_p->store_context_p = store_context_p;
   esc_log(ctx_p, ESC_LOG_DEBUG, "%s: set store context", __func__);
 
 cleanup:
@@ -557,30 +568,32 @@ void esc_cleanup(esc_context * ctx_p) {
 }
 
 int esc_install(esc_context * ctx_p) {
+  return -1;
+}
+/**
   const char * err_msg = "";
   int ret_val = 0;
   int db_needs_init = 0;
 
-  signal_context * global_context_p = ctx_p->axolotl_global_context_p;
   ratchet_identity_key_pair * identity_key_pair_p = NULL;
   signal_protocol_key_helper_pre_key_list_node * pre_keys_head_p = NULL;
   session_pre_key * last_resort_key_p = NULL;
   session_signed_pre_key * signed_pre_key_p = NULL;
   signal_buffer * last_resort_key_buf_p = NULL;
   signal_buffer * signed_pre_key_data_p = NULL;
-  uint32_t registration_id;
 
   esc_log(ctx_p, ESC_LOG_INFO, "%s: calling install-time functions", __func__);
 
   int init_status = 0;
   int db_needs_reset = 0;
-
+/*
   ret_val = esc_db_create(ctx_p);
   if (ret_val){
     err_msg = "failed to create db";
     goto cleanup;
   }
   esc_log(ctx_p, ESC_LOG_DEBUG, "%s: created db if it did not exist already", __func__);
+
 
   init_status = ESC_DB_NOT_INITIALIZED;
   ret_val = esc_db_init_status_get(&init_status, ctx_p);
@@ -631,112 +644,6 @@ int esc_install(esc_context * ctx_p) {
     esc_log(ctx_p, ESC_LOG_DEBUG, "%s: db does not need reset", __func__ );
   }
 
-  if (db_needs_init) {
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: db needs init", __func__ );
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: setting init status to esc_DB_NEEDS_ROLLBACK (%i)", __func__, ESC_DB_NEEDS_ROLLBACK );
-
-    ret_val = esc_db_init_status_set(ESC_DB_NEEDS_ROLLBACK, ctx_p);
-    if (ret_val) {
-      err_msg = "failed to set init status to esc_DB_NEEDS_ROLLBACK";
-      goto cleanup;
-    }
-
-    ret_val = signal_protocol_key_helper_generate_identity_key_pair(&identity_key_pair_p, global_context_p);
-    if (ret_val) {
-      err_msg = "failed to generate the identity key pair";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated identity key pair", __func__ );
-
-    ret_val = signal_protocol_key_helper_generate_registration_id(&registration_id, 1, global_context_p);
-    if (ret_val) {
-      err_msg = "failed to generate registration id";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated registration id: %i", __func__, registration_id);
-
-    ret_val = signal_protocol_key_helper_generate_pre_keys(&pre_keys_head_p, 1, ESC_PRE_KEYS_AMOUNT, global_context_p);
-    if(ret_val) {
-      err_msg = "failed to generate pre keys";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated pre keys", __func__ );
-
-/*
-    ret_val = signal_protocol_key_helper_generate_last_resort_pre_key(&last_resort_key_p, global_context_p);
-    if (ret_val) {
-      err_msg = "failed to generate last resort pre key";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated last resort pre key", __func__ );
-*/    
-
-    ret_val = signal_protocol_key_helper_generate_signed_pre_key(&signed_pre_key_p, identity_key_pair_p, 0, g_get_real_time(), global_context_p);
-    if (ret_val) {
-      err_msg = "failed to generate signed pre key";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated signed pre key", __func__ );
-
-
-    ret_val = esc_db_identity_set_key_pair(identity_key_pair_p, ctx_p);
-    if (ret_val) {
-      err_msg = "failed to set identity key pair";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved identity key pair", __func__ );
-
-    ret_val = esc_db_identity_set_local_registration_id(registration_id, ctx_p);
-    if (ret_val) {
-      err_msg = "failed to set registration id";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved registration id", __func__ );
-
-    ret_val = esc_db_pre_key_store_list(pre_keys_head_p, ctx_p);
-    if (ret_val) {
-      err_msg = "failed to save pre key list";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved pre keys", __func__ );
-
-
-    ret_val = session_pre_key_serialize(&last_resort_key_buf_p, last_resort_key_p);
-    if (ret_val) {
-      err_msg = "failed to serialize last resort pre key";
-      goto cleanup;
-    }
-
-    ret_val = esc_db_pre_key_store(session_pre_key_get_id(last_resort_key_p), signal_buffer_data(last_resort_key_buf_p), signal_buffer_len(last_resort_key_buf_p), ctx_p);
-    if (ret_val) {
-      err_msg = "failed to save last resort pre key";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved last resort pre key", __func__ );
-
-    ret_val = session_signed_pre_key_serialize(&signed_pre_key_data_p, signed_pre_key_p);
-    if (ret_val) {
-      err_msg = "failed to serialize signed pre key";
-      goto cleanup;
-    }
-
-    ret_val = esc_db_signed_pre_key_store(session_signed_pre_key_get_id(signed_pre_key_p), signal_buffer_data(signed_pre_key_data_p), signal_buffer_len(signed_pre_key_data_p), ctx_p);
-    if (ret_val) {
-      err_msg = "failed to save signed pre key";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved signed pre key", __func__ );
-
-    ret_val = esc_db_init_status_set(ESC_DB_INITIALIZED, ctx_p);
-    if (ret_val) {
-      err_msg = "failed to set init status to esc_DB_INITIALIZED";
-      goto cleanup;
-    }
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: initialised DB", __func__ );
-
-  } else {
-    esc_log(ctx_p, ESC_LOG_DEBUG, "%s: db already initialized", __func__ );
-  }
 
 cleanup:
   if (ret_val < 0) {
@@ -753,10 +660,134 @@ cleanup:
   }
 
   return ret_val;
+} */
+
+int esc_generate_identity_keys(esc_context * ctx_p) {
+  const char * err_msg = "";
+  int ret_val = 0;
+
+  signal_context * global_context_p = ctx_p->global_context_p;
+  ratchet_identity_key_pair * identity_key_pair_p = NULL;
+  signal_protocol_key_helper_pre_key_list_node * pre_keys_head_p = NULL;
+  session_pre_key * last_resort_key_p = NULL;
+  session_signed_pre_key * signed_pre_key_p = NULL;
+  signal_buffer * last_resort_key_buf_p = NULL;
+  signal_buffer * signed_pre_key_data_p = NULL;
+  uint32_t registration_id;
+  int time;  
+
+  ret_val = signal_protocol_key_helper_generate_identity_key_pair(&identity_key_pair_p, global_context_p);
+  if (ret_val) {
+    err_msg = "failed to generate the identity key pair";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated identity key pair", __func__ );
+
+  ret_val = signal_protocol_key_helper_generate_registration_id(&registration_id, 1, global_context_p);
+  if (ret_val) {
+    err_msg = "failed to generate registration id";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated registration id: %i", __func__, registration_id);
+
+  ret_val = signal_protocol_key_helper_generate_pre_keys(&pre_keys_head_p, 1, ESC_PRE_KEYS_AMOUNT, global_context_p);
+  if(ret_val) {
+    err_msg = "failed to generate pre keys";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated pre keys", __func__ );
+
+  /*
+  ret_val = signal_protocol_key_helper_generate_last_resort_pre_key(&last_resort_key_p, global_context_p);
+  if (ret_val) {
+    err_msg = "failed to generate last resort pre key";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated last resort pre key", __func__ );
+  */    
+  time = (int) std::time(NULL);
+
+
+  ret_val = signal_protocol_key_helper_generate_signed_pre_key(&signed_pre_key_p, identity_key_pair_p, 0, time, global_context_p);
+  if (ret_val) {
+    err_msg = "failed to generate signed pre key";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated signed pre key", __func__ );
+
+
+  ret_val = esc_db_identity_set_key_pair(identity_key_pair_p, ctx_p);
+  if (ret_val) {
+    err_msg = "failed to set identity key pair";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved identity key pair", __func__ );
+
+  ret_val = esc_db_identity_set_local_registration_id(registration_id, ctx_p);
+  if (ret_val) {
+    err_msg = "failed to set registration id";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved registration id", __func__ );
+
+  ret_val = esc_db_pre_key_store_list(pre_keys_head_p, ctx_p);
+  if (ret_val) {
+    err_msg = "failed to save pre key list";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved pre keys", __func__ );
+
+
+  ret_val = session_pre_key_serialize(&last_resort_key_buf_p, last_resort_key_p);
+  if (ret_val) {
+    err_msg = "failed to serialize last resort pre key";
+    goto cleanup;
+  }
+
+  ret_val = esc_db_pre_key_store(session_pre_key_get_id(last_resort_key_p), signal_buffer_data(last_resort_key_buf_p), signal_buffer_len(last_resort_key_buf_p), ctx_p);
+  if (ret_val) {
+    err_msg = "failed to save last resort pre key";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved last resort pre key", __func__ );
+
+  ret_val = session_signed_pre_key_serialize(&signed_pre_key_data_p, signed_pre_key_p);
+  if (ret_val) {
+    err_msg = "failed to serialize signed pre key";
+    goto cleanup;
+  }
+
+  ret_val = esc_db_signed_pre_key_store(session_signed_pre_key_get_id(signed_pre_key_p), signal_buffer_data(signed_pre_key_data_p), signal_buffer_len(signed_pre_key_data_p), ctx_p);
+  if (ret_val) {
+    err_msg = "failed to save signed pre key";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved signed pre key", __func__ );
+
+  ret_val = esc_db_init_status_set(ESC_DB_INITIALIZED, ctx_p);
+  if (ret_val) {
+    err_msg = "failed to set init status to esc_DB_INITIALIZED";
+    goto cleanup;
+  }
+  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: initialised DB", __func__ );
+
+cleanup:
+  if (ret_val < 0) {
+    esc_log(ctx_p, ESC_LOG_ERROR, "%s: %s", __func__, err_msg);
+  }
+
+  SIGNAL_UNREF(identity_key_pair_p);
+  signal_protocol_key_helper_key_list_free(pre_keys_head_p);
+  SIGNAL_UNREF(last_resort_key_p);
+  SIGNAL_UNREF(signed_pre_key_p);
+  signal_buffer_bzero_free(last_resort_key_buf_p);
+  signal_buffer_bzero_free(signed_pre_key_data_p);
+
+  return ret_val;  
 }
 
 int esc_get_device_id(esc_context * ctx_p, uint32_t * id_p) {
-  return signal_protocol_identity_get_local_registration_id(ctx_p->axolotl_store_context_p, id_p);
+  return signal_protocol_identity_get_local_registration_id(ctx_p->store_context_p, id_p);
 }
 
 int esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_address * recipient_addr_p, esc_context * ctx_p, esc_buf ** ciphertext_pp) {
@@ -790,7 +821,7 @@ int esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_address * recip
   }
 
 
-  ret_val = session_cipher_create(&cipher_p, ctx_p->axolotl_store_context_p, recipient_addr_p, ctx_p->axolotl_global_context_p);
+  ret_val = session_cipher_create(&cipher_p, ctx_p->store_context_p, recipient_addr_p, ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to create session cipher";
     goto cleanup;
@@ -857,13 +888,13 @@ int esc_message_decrypt_from_serialized (esc_buf * msg_p, esc_address * sender_a
     goto cleanup;
   }
 
-  ret_val = session_cipher_create(&cipher_p, ctx_p->axolotl_store_context_p, sender_addr_p, ctx_p->axolotl_global_context_p);
+  ret_val = session_cipher_create(&cipher_p, ctx_p->store_context_p, sender_addr_p, ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to create session cipher";
     goto cleanup;
   }
 
-  ret_val = signal_message_deserialize(&ciphertext_p, esc_buf_get_data(msg_p), esc_buf_get_len(msg_p), ctx_p->axolotl_global_context_p);
+  ret_val = signal_message_deserialize(&ciphertext_p, esc_buf_get_data(msg_p), esc_buf_get_len(msg_p), ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to deserialize whisper msg";
     goto cleanup;
@@ -897,11 +928,11 @@ int esc_session_exists_initiated(const esc_address * addr_p, esc_context * ctx_p
   //TODO: if there was no response yet, even though it is an established session it keeps sending prekeymsgs
   //      maybe that is "uninitiated" too?
 
-  if(!signal_protocol_session_contains_session(ctx_p->axolotl_store_context_p, addr_p)) {
+  if(!signal_protocol_session_contains_session(ctx_p->store_context_p, addr_p)) {
     return 0;
   }
 
-  ret_val = signal_protocol_session_load_session(ctx_p->axolotl_store_context_p, &session_record_p, addr_p);
+  ret_val = signal_protocol_session_load_session(ctx_p->store_context_p, &session_record_p, addr_p);
   if (ret_val){
     err_msg = "database error when trying to retrieve session";
     goto cleanup;
@@ -937,7 +968,7 @@ int esc_session_exists_any(const char * name, esc_context * ctx_p) {
 
   signal_int_list * sess_l_p = NULL;
 
-  ret_val = signal_protocol_session_get_sub_device_sessions(ctx_p->axolotl_store_context_p, &sess_l_p, name, strlen(name));
+  ret_val = signal_protocol_session_get_sub_device_sessions(ctx_p->store_context_p, &sess_l_p, name, strlen(name));
   if (ret_val < 0) {
     goto cleanup;
   }
@@ -950,6 +981,7 @@ cleanup:
 }
 
 
+/*
 int esc_session_from_bundle(uint32_t pre_key_id,
                             esc_buf * pre_key_public_serialized_p,
                             uint32_t signed_pre_key_id,
@@ -971,7 +1003,7 @@ int esc_session_from_bundle(uint32_t pre_key_id,
   ret_val = curve_decode_point(&pre_key_public_p,
                                esc_buf_get_data(pre_key_public_serialized_p),
                                esc_buf_get_len(pre_key_public_serialized_p),
-                               ctx_p->axolotl_global_context_p);
+                               ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to deserialize public pre key";
     goto cleanup;
@@ -981,7 +1013,7 @@ int esc_session_from_bundle(uint32_t pre_key_id,
   ret_val = curve_decode_point(&signed_pre_key_public_p,
                                esc_buf_get_data(signed_pre_key_public_serialized_p),
                                esc_buf_get_len(signed_pre_key_public_serialized_p),
-                               ctx_p->axolotl_global_context_p);
+                               ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to deserialize signed public pre key";
     goto cleanup;
@@ -990,7 +1022,7 @@ int esc_session_from_bundle(uint32_t pre_key_id,
   ret_val = curve_decode_point(&identity_key_public_p,
                                esc_buf_get_data(identity_key_public_serialized_p),
                                esc_buf_get_len(identity_key_public_serialized_p),
-                               ctx_p->axolotl_global_context_p);
+                               ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to deserialize public identity key";
     goto cleanup;
@@ -1011,7 +1043,7 @@ int esc_session_from_bundle(uint32_t pre_key_id,
     goto cleanup;
   }
 
-  ret_val = session_builder_create(&session_builder_p, ctx_p->axolotl_store_context_p, remote_address_p, ctx_p->axolotl_global_context_p);
+  ret_val = session_builder_create(&session_builder_p, ctx_p->store_context_p, remote_address_p, ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to create session builder";
     goto cleanup;
@@ -1045,7 +1077,7 @@ int esc_session_delete(const char * user, int32_t device_id, esc_context * ctx_p
     .name_len = strlen(user), 
     .device_id = device_id
   };
-  ret_val = signal_protocol_session_delete_session(ctx_p->axolotl_store_context_p, &addr);
+  ret_val = signal_protocol_session_delete_session(ctx_p->store_context_p, &addr);
   if (ret_val) {
     esc_log(ctx_p, ESC_LOG_ERROR, "%s: failed to delete session for %s:%i", __func__, user, device_id);
   }
@@ -1053,6 +1085,9 @@ int esc_session_delete(const char * user, int32_t device_id, esc_context * ctx_p
   return ret_val;
 }
 
+*/
+
+/*
 int esc_pre_key_message_process(esc_buf * pre_key_msg_serialized_p, esc_address * remote_address_p, esc_context * ctx_p, esc_buf ** plaintext_pp) {
   const char * err_msg = "";
   int ret_val = 0;
@@ -1067,14 +1102,14 @@ int esc_pre_key_message_process(esc_buf * pre_key_msg_serialized_p, esc_address 
   signal_protocol_key_helper_pre_key_list_node * key_l_p = NULL;
 
 
-  ret_val = session_builder_create(&session_builder_p, ctx_p->axolotl_store_context_p, remote_address_p, ctx_p->axolotl_global_context_p);
+  ret_val = session_builder_create(&session_builder_p, ctx_p->store_context_p, remote_address_p, ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to create session builder";
     goto cleanup;
   }
 
 
-  ret_val = signal_protocol_session_load_session(ctx_p->axolotl_store_context_p, &session_record_p, remote_address_p);
+  ret_val = signal_protocol_session_load_session(ctx_p->store_context_p, &session_record_p, remote_address_p);
   if (ret_val) {
     err_msg = "failed to load or create session record";
     goto cleanup;
@@ -1084,7 +1119,7 @@ int esc_pre_key_message_process(esc_buf * pre_key_msg_serialized_p, esc_address 
   ret_val = pre_key_signal_message_deserialize(&pre_key_msg_p,
                                                 esc_buf_get_data(pre_key_msg_serialized_p),
                                                 esc_buf_get_len(pre_key_msg_serialized_p),
-                                                ctx_p->axolotl_global_context_p);
+                                                ctx_p->global_context_p);
   if (ret_val == SG_ERR_INVALID_PROTO_BUF) {
     err_msg = "not a pre key msg";
     ret_val = ESC_ERR_NOT_A_PREKEY_MSG;
@@ -1105,7 +1140,7 @@ int esc_pre_key_message_process(esc_buf * pre_key_msg_serialized_p, esc_address 
 
 
   do {
-    ret_val = signal_protocol_key_helper_generate_pre_keys(&key_l_p, new_id, 1, ctx_p->axolotl_global_context_p);
+    ret_val = signal_protocol_key_helper_generate_pre_keys(&key_l_p, new_id, 1, ctx_p->global_context_p);
     if (ret_val) {
       err_msg = "failed to generate a new key";
       goto cleanup;
@@ -1113,7 +1148,7 @@ int esc_pre_key_message_process(esc_buf * pre_key_msg_serialized_p, esc_address 
 
     new_id++;
 
-  } while (signal_protocol_pre_key_contains_key(ctx_p->axolotl_store_context_p, session_pre_key_get_id(signal_protocol_key_helper_key_list_element(key_l_p))));
+  } while (signal_protocol_pre_key_contains_key(ctx_p->store_context_p, session_pre_key_get_id(signal_protocol_key_helper_key_list_element(key_l_p))));
 
 
 
@@ -1124,7 +1159,7 @@ int esc_pre_key_message_process(esc_buf * pre_key_msg_serialized_p, esc_address 
   }
 
 
-  ret_val = session_cipher_create(&session_cipher_p, ctx_p->axolotl_store_context_p, remote_address_p, ctx_p->axolotl_global_context_p);
+  ret_val = session_cipher_create(&session_cipher_p, ctx_p->store_context_p, remote_address_p, ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to create session cipher";
     goto cleanup;
@@ -1137,7 +1172,7 @@ int esc_pre_key_message_process(esc_buf * pre_key_msg_serialized_p, esc_address 
     goto cleanup;
   }
 
-  ret_val = signal_protocol_pre_key_store_key(ctx_p->axolotl_store_context_p, signal_protocol_key_helper_key_list_element(key_l_p));
+  ret_val = signal_protocol_pre_key_store_key(ctx_p->store_context_p, signal_protocol_key_helper_key_list_element(key_l_p));
   if (ret_val) {
     err_msg = "failed to store new key";
     goto cleanup;
@@ -1158,7 +1193,9 @@ cleanup:
 
   return ret_val;
 }
+*/
 
+/*
 int esc_key_load_public_own(esc_context * ctx_p, esc_buf ** pubkey_data_pp) {
   const char * err_msg;
   int ret_val = 0;
@@ -1166,7 +1203,7 @@ int esc_key_load_public_own(esc_context * ctx_p, esc_buf ** pubkey_data_pp) {
   ratchet_identity_key_pair * kp_p = NULL;
   esc_buf * key_data_p = NULL;
 
-  ret_val = signal_protocol_identity_get_key_pair(ctx_p->axolotl_store_context_p, &kp_p);
+  ret_val = signal_protocol_identity_get_key_pair(ctx_p->store_context_p, &kp_p);
   if (ret_val) {
     err_msg = "failed to load identity key pair";
     goto cleanup;
@@ -1191,6 +1228,9 @@ cleanup:
   return ret_val;
 }
 
+*/
+
+/*
 int esc_key_load_public_addr(const char * name, int32_t device_id, esc_context * ctx_p, esc_buf ** pubkey_data_pp) {
   const char * err_msg;
   int ret_val = 0;
@@ -1204,7 +1244,7 @@ int esc_key_load_public_addr(const char * name, int32_t device_id, esc_context *
       .device_id = device_id
   };
 
-  ret_val = signal_protocol_session_load_session(ctx_p->axolotl_store_context_p, &sr_p, &addr);
+  ret_val = signal_protocol_session_load_session(ctx_p->store_context_p, &sr_p, &addr);
   if (ret_val) {
     err_msg = "failed to load session";
     goto cleanup;
@@ -1235,6 +1275,24 @@ cleanup:
   return ret_val;
 }
 
+*/
+
+esc_buf * esc_handshake_get_data(esc_handshake * handshake_p) {
+  return handshake_p->handshake_msg_p;
+}
+
+int esc_handshake_initiate(esc_address * recipient_addr_p, esc_context * ctx_p, esc_handshake ** handshake_init_pp) {
+  return -1;
+}
+
+int esc_handshake_accept(esc_buf * msg_data_p, esc_address * sender_addr_p, esc_context * ctx_p, esc_handshake ** handshake_response_pp) {
+  // session_builder *builder = create_session_builder()
+  return -1;
+}
+
+int esc_handshake_acknowledge(esc_buf * msg_data_p, esc_handshake * handshake_p, esc_context * ctx_p) {
+    return -1;
+}
 
 
 /**
