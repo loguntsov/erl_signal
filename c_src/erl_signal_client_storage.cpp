@@ -19,7 +19,6 @@ void esc_storage::set(const key key, const row row ) {
     if (iterator == this->data.end()) {            
         this->data[key] = row;
     } else {
-        delete &iterator->second;
         iterator->second = row;
     }
     this->is_changed = true;

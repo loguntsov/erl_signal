@@ -662,61 +662,41 @@ cleanup:
   return ret_val;
 } */
 
-int esc_generate_identity_keys(esc_context * ctx_p) {
-  const char * err_msg = "";
+const char * esc_generate_identity_keys(esc_context * ctx_p) {
+  const char * err_msg = NULL;
   int ret_val = 0;
 
-  signal_context * global_context_p = ctx_p->global_context_p;
-  ratchet_identity_key_pair * identity_key_pair_p = NULL;
-  signal_protocol_key_helper_pre_key_list_node * pre_keys_head_p = NULL;
-  session_pre_key * last_resort_key_p = NULL;
-  session_signed_pre_key * signed_pre_key_p = NULL;
-  signal_buffer * last_resort_key_buf_p = NULL;
-  signal_buffer * signed_pre_key_data_p = NULL;
+  ratchet_identity_key_pair *identity_key_pair;
   uint32_t registration_id;
-  int time;  
+  signal_protocol_key_helper_pre_key_list_node *pre_keys_head;
+  session_signed_pre_key *signed_pre_key;
 
-  ret_val = signal_protocol_key_helper_generate_identity_key_pair(&identity_key_pair_p, global_context_p);
+  ret_val = signal_protocol_key_helper_generate_identity_key_pair(&identity_key_pair, ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to generate the identity key pair";
     goto cleanup;
-  }
-  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated identity key pair", __func__ );
-
-  ret_val = signal_protocol_key_helper_generate_registration_id(&registration_id, 1, global_context_p);
+  }  
+  
+  ret_val = signal_protocol_key_helper_generate_registration_id(&registration_id, 0, ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to generate registration id";
     goto cleanup;
   }
-  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated registration id: %i", __func__, registration_id);
-
-  ret_val = signal_protocol_key_helper_generate_pre_keys(&pre_keys_head_p, 1, ESC_PRE_KEYS_AMOUNT, global_context_p);
+  
+  ret_val = signal_protocol_key_helper_generate_pre_keys(&pre_keys_head, 0, ESC_PRE_KEYS_AMOUNT, ctx_p->global_context_p);
   if(ret_val) {
     err_msg = "failed to generate pre keys";
     goto cleanup;
   }
-  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated pre keys", __func__ );
 
-  /*
-  ret_val = signal_protocol_key_helper_generate_last_resort_pre_key(&last_resort_key_p, global_context_p);
-  if (ret_val) {
-    err_msg = "failed to generate last resort pre key";
-    goto cleanup;
-  }
-  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated last resort pre key", __func__ );
-  */    
-  time = (int) std::time(NULL);
-
-
-  ret_val = signal_protocol_key_helper_generate_signed_pre_key(&signed_pre_key_p, identity_key_pair_p, 0, time, global_context_p);
+  ret_val = signal_protocol_key_helper_generate_signed_pre_key(&signed_pre_key, identity_key_pair, 5, ( uint64_t ) std::time(NULL), ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to generate signed pre key";
     goto cleanup;
   }
-  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: generated signed pre key", __func__ );
 
 
-  ret_val = esc_db_identity_set_key_pair(identity_key_pair_p, ctx_p);
+  ret_val = esc_db_identity_set_key_pair(identity_key_pair, ctx_p);
   if (ret_val) {
     err_msg = "failed to set identity key pair";
     goto cleanup;
@@ -730,60 +710,23 @@ int esc_generate_identity_keys(esc_context * ctx_p) {
   }
   esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved registration id", __func__ );
 
-  ret_val = esc_db_pre_key_store_list(pre_keys_head_p, ctx_p);
+  ret_val = esc_db_pre_key_store_list(pre_keys_head, ctx_p);
   if (ret_val) {
     err_msg = "failed to save pre key list";
     goto cleanup;
   }
   esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved pre keys", __func__ );
 
-
-  ret_val = session_pre_key_serialize(&last_resort_key_buf_p, last_resort_key_p);
-  if (ret_val) {
-    err_msg = "failed to serialize last resort pre key";
-    goto cleanup;
-  }
-
-  ret_val = esc_db_pre_key_store(session_pre_key_get_id(last_resort_key_p), signal_buffer_data(last_resort_key_buf_p), signal_buffer_len(last_resort_key_buf_p), ctx_p);
-  if (ret_val) {
-    err_msg = "failed to save last resort pre key";
-    goto cleanup;
-  }
-  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved last resort pre key", __func__ );
-
-  ret_val = session_signed_pre_key_serialize(&signed_pre_key_data_p, signed_pre_key_p);
-  if (ret_val) {
-    err_msg = "failed to serialize signed pre key";
-    goto cleanup;
-  }
-
-  ret_val = esc_db_signed_pre_key_store(session_signed_pre_key_get_id(signed_pre_key_p), signal_buffer_data(signed_pre_key_data_p), signal_buffer_len(signed_pre_key_data_p), ctx_p);
-  if (ret_val) {
-    err_msg = "failed to save signed pre key";
-    goto cleanup;
-  }
-  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: saved signed pre key", __func__ );
-
-  ret_val = esc_db_init_status_set(ESC_DB_INITIALIZED, ctx_p);
-  if (ret_val) {
-    err_msg = "failed to set init status to esc_DB_INITIALIZED";
-    goto cleanup;
-  }
-  esc_log(ctx_p, ESC_LOG_DEBUG, "%s: initialised DB", __func__ );
-
 cleanup:
-  if (ret_val < 0) {
+  if ( err_msg != NULL ) {
     esc_log(ctx_p, ESC_LOG_ERROR, "%s: %s", __func__, err_msg);
   }
 
-  SIGNAL_UNREF(identity_key_pair_p);
-  signal_protocol_key_helper_key_list_free(pre_keys_head_p);
-  SIGNAL_UNREF(last_resort_key_p);
-  SIGNAL_UNREF(signed_pre_key_p);
-  signal_buffer_bzero_free(last_resort_key_buf_p);
-  signal_buffer_bzero_free(signed_pre_key_data_p);
+  SIGNAL_UNREF(identity_key_pair);
+  signal_protocol_key_helper_key_list_free(pre_keys_head);
+  SIGNAL_UNREF(signed_pre_key);
 
-  return ret_val;  
+  return err_msg;  
 }
 
 int esc_get_device_id(esc_context * ctx_p, uint32_t * id_p) {

@@ -138,7 +138,7 @@ int esc_init(esc_context * ctx_p);
  * @param ctx_p A pointer to an already created axc context.
  * @return 0 on success, negative on failure
  */
-int esc_generate_identity_keys(esc_context * ctx_p);
+const char * esc_generate_identity_keys(esc_context * ctx_p);
 
 /**
  * Destroys mutexes and axolotl contexts saved in the axc context.

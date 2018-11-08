@@ -8,9 +8,11 @@ run:
 
 .PHONY: test
 test:
+	rm -rf test/ct_logs
 	./rebar3 ct
 
 .PHONY: clean
 clean:
+	rm -rf test/ct_logs
 	./rebar3 clean
 

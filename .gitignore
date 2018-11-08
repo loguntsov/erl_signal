@@ -3,6 +3,7 @@
 .idea
 .vscode
 _build
+test/ct_logs
 *.iml
 *.dump
 c_src/*.o
