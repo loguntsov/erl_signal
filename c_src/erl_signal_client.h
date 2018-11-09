@@ -4,6 +4,7 @@
 
 
 #include "libsignal-c/signal_protocol.h"
+#include "libsignal-c/signal_protocol_types.h"
 #include "erl_signal_client_storage.h"
 
 typedef struct esc_mutexes {
@@ -166,7 +167,7 @@ int esc_install(esc_context * ctx_p);
 int esc_get_device_id(esc_context * ctx_p, uint32_t * id_p);
 
 esc_buf * esc_buf_create(const uint8_t * data, size_t len);
-uint8_t * esc_buf_get_data(esc_buf * buf);
+unsigned char * esc_buf_get_data(esc_buf * buf);
 size_t esc_buf_get_len(esc_buf * buf);
 void esc_buf_free(esc_buf * buf);
 
@@ -189,7 +190,7 @@ esc_buf * esc_handshake_get_data(esc_handshake * handshake_p);
  * @param handshake_pp The handshake struct to keep for the next steps.
  * @return 0 on success, negative on error
  */
-int esc_handshake_initiate(esc_address * recipient_addr_p, esc_context * ctx_p, esc_handshake ** handshake_init_pp);
+//int esc_handshake_initiate(esc_address * recipient_addr_p, esc_context * ctx_p, esc_handshake ** handshake_init_pp);
 
 /**
  * Second step of the session establishment, is called by the recipient.
@@ -200,7 +201,7 @@ int esc_handshake_initiate(esc_address * recipient_addr_p, esc_context * ctx_p, 
  * @param handshake_response_pp Will point to the response message if successful, unset otherwise. Has to be freed using esc_handshake_destroy().
  * @return 0 on success, negative on error.
  */
-int esc_handshake_accept(esc_buf * msg_data_p, esc_address * sender_addr_p, esc_context * ctx_p, esc_handshake ** handshake_response_pp);
+//int esc_handshake_accept(esc_buf * msg_data_p, esc_address * sender_addr_p, esc_context * ctx_p, esc_handshake ** handshake_response_pp);
 
 /**
  * Third and final step of session establishment.
@@ -211,14 +212,14 @@ int esc_handshake_accept(esc_buf * msg_data_p, esc_address * sender_addr_p, esc_
  * @return 0 on success, negative on error.
  *
  */
-int esc_handshake_acknowledge(esc_buf * msg_data_p, esc_handshake * handshake_p, esc_context * ctx_p);
+//int esc_handshake_acknowledge(esc_buf * msg_data_p, esc_handshake * handshake_p, esc_context * ctx_p);
 
 /**
  * Frees the memory used by this struct and its members.
  *
  * @param The esc_handshake to destroy.
  */
-void esc_handshake_destroy(esc_handshake * hs);
+//void esc_handshake_destroy(esc_handshake * hs);
 
 /**
  * Encrypts a message. Needs an established session, either synchronous or built from bundle.
@@ -232,7 +233,7 @@ void esc_handshake_destroy(esc_handshake * hs);
  * @param ciphertext_pp Will point to the serialized ciphertext afterwards.
  * @return 0 on success, negative on error.
  */
-int esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_address * recipient_addr_p, esc_context * ctx_p, esc_buf ** ciphertext_pp);
+const char * esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_address * recipient_addr_p, esc_context * ctx_p, esc_buf ** ciphertext_pp);
 
 /**
  * Decrypts a received message. Needs an established session.

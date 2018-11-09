@@ -40,7 +40,7 @@ int esc_db_pre_key_store_list(signal_protocol_key_helper_pre_key_list_node * pre
  * @param list_head_pp Will be set to the head of the list.
  * @return 0 on success, negative on error.
  */
-int esc_db_pre_key_get_list(size_t amount, esc_context * ctx_p, esc_buf_list_item ** list_head_pp);
+int esc_db_pre_key_get_list(size_t amount, void * user_data, esc_buf_list_item ** list_head_pp);
 
 /**
  * Retrieves the highest existing pre key ID that is not the last resort key's ID.

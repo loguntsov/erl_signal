@@ -261,7 +261,58 @@ int esc_db_pre_key_store_list(signal_protocol_key_helper_pre_key_list_node * pre
   return 0;
 }
 
-int esc_db_pre_key_get_list(size_t amount, esc_context * esc_ctx_p, esc_buf_list_item ** list_head_pp) {
+int esc_db_pre_key_get_list(size_t amount, void * user_data, esc_buf_list_item ** list_head_pp) {
+  esc_context * esc_ctx_p = (esc_context *) user_data;  
+  const char * err_msg;
+
+  esc_buf_list_item *list = NULL;
+  esc_buf_list_item *head = NULL;
+  ec_key_pair * pre_key_pair_p = NULL;
+  ec_public_key * pre_key_public_p = NULL;
+  esc_buf * pre_key_public_serialized_p = NULL;
+  esc_buf_list_item * temp_item_p = NULL;
+
+  int ret_val = 0;
+
+  session_pre_key * pre_key_p = NULL;  
+
+  for(esc_storage::storage::const_iterator it = esc_ctx_p->pre_key_store->begin(); it!=esc_ctx_p->pre_key_store->end(); it++) {
+    uint32_t key_id = std::stoi(it->first);
+    esc_storage::row row = it->second;
+
+    std::string pre_key_str_serialized = row.get("pre_key", "");
+
+    ret_val = session_pre_key_deserialize(&pre_key_p, (uint8_t *) pre_key_str_serialized.c_str(), pre_key_str_serialized.size(), esc_ctx_p->global_context_p);
+    if (ret_val) {
+      err_msg = "failed to deserialize pre_key";
+      goto cleanup;
+    }    
+
+    pre_key_pair_p = session_pre_key_get_key_pair(pre_key_p);
+    pre_key_public_p = ec_key_pair_get_public(pre_key_pair_p);
+
+    ret_val = ec_public_key_serialize(&pre_key_public_serialized_p, pre_key_public_p);
+    if (ret_val) {
+      err_msg = "failed to serialize public key";
+      goto cleanup;
+    }
+
+    ret_val = esc_buf_list_item_create(&temp_item_p, &key_id, pre_key_public_serialized_p);
+    if (ret_val) {
+      err_msg = "failed to create list item";
+      goto cleanup;
+    }
+
+    //esc_buf_free(serialized_keypair_data_p);
+
+    SIGNAL_UNREF(pre_key_p);
+    pre_key_p = NULL;
+
+    esc_buf_list_item_create(&head, NULL, NULL);
+    head->next_p = list;
+    list = head;
+  }
+
 /**  
   const char stmt[] = "SELECT * FROM " PRE_KEY_STORE_TABLE_NAME
                       " ORDER BY " PRE_KEY_STORE_ID_NAME " ASC LIMIT ?1;";
@@ -276,7 +327,7 @@ int esc_db_pre_key_get_list(size_t amount, esc_context * esc_ctx_p, esc_buf_list
   uint32_t key_id = 0;
   esc_buf * serialized_keypair_data_p = NULL;
   size_t record_len = 0;
-  session_pre_key * pre_key_p = NULL;
+
   ec_key_pair * pre_key_pair_p = NULL;
   ec_public_key * pre_key_public_p = NULL;
   esc_buf * pre_key_public_serialized_p = NULL;
@@ -347,19 +398,21 @@ int esc_db_pre_key_get_list(size_t amount, esc_context * esc_ctx_p, esc_buf_list
 
   *list_head_pp = esc_buf_list_item_get_next(head_p);
   ret_val = 0;
-
+*/
 cleanup:
   if (ret_val) {
-    esc_buf_free(serialized_keypair_data_p);
+    //esc_buf_free(serialized_keypair_data_p);
     SIGNAL_UNREF(pre_key_p);
     esc_buf_free(pre_key_public_serialized_p);
-    esc_buf_list_free(head_p);
+    esc_buf_list_free(list);
+    return ret_val;    
+  } else {
+      *list_head_pp = list;
+      (void *) err_msg;
+      return 0;      
   }
 
-  db_conn_cleanup(db_p, pstmt_p, err_msg, __func__, esc_ctx_p);
-  return ret_val;
-  */
- return -1;
+  
 }
 
 int esc_db_pre_key_contains(uint32_t pre_key_id, void * user_data) {

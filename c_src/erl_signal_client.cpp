@@ -410,8 +410,8 @@ esc_buf * esc_buf_create(const uint8_t * data, size_t len) {
   return signal_buffer_create(data, len);
 }
 
-uint8_t * esc_buf_get_data(esc_buf * buf) {
-  return signal_buffer_data(buf);
+unsigned char * esc_buf_get_data(esc_buf * buf) {
+  return (unsigned char * ) signal_buffer_data(buf);
 }
 
 size_t esc_buf_get_len(esc_buf * buf) {
@@ -733,8 +733,8 @@ int esc_get_device_id(esc_context * ctx_p, uint32_t * id_p) {
   return signal_protocol_identity_get_local_registration_id(ctx_p->store_context_p, id_p);
 }
 
-int esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_address * recipient_addr_p, esc_context * ctx_p, esc_buf ** ciphertext_pp) {
-  const char * err_msg = "";
+const char * esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_address * recipient_addr_p, esc_context * ctx_p, esc_buf ** ciphertext_pp) {
+  const char * err_msg = NULL;
   int ret_val = 0;
 
   session_cipher * cipher_p = NULL;
@@ -743,23 +743,19 @@ int esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_address * recip
   esc_buf * cipher_msg_data_cpy_p = NULL;
 
   if (!ctx_p) {
-    fprintf(stderr, "%s: axc ctx is null!\n", __func__);
-    return -1;
+    return "context_is_null";
   }
 
   if (!msg_p) {
     err_msg = "could not encrypt because msg pointer is null";
-    ret_val = -1;
     goto cleanup;
   }
   if (!recipient_addr_p) {
     err_msg = "could not encrypt because recipient addr pointer is null";
-    ret_val = -1;
     goto cleanup;
   }
   if (!ciphertext_pp) {
     err_msg = "could not encrypt because ciphertext pointer is null";
-    ret_val = -1;
     goto cleanup;
   }
 
@@ -772,7 +768,7 @@ int esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_address * recip
 
   ret_val = session_cipher_encrypt(cipher_p, esc_buf_get_data(msg_p), esc_buf_get_len(msg_p), &cipher_msg_p);
   if (ret_val) {
-    err_msg = "failed to encrypt the message";
+    err_msg = (new std::string(std::to_string(ret_val)))->c_str(); //"failed to encrypt the message";
     goto cleanup;
   }
 
@@ -781,14 +777,13 @@ int esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_address * recip
 
   if (!cipher_msg_data_cpy_p) {
     err_msg = "failed to copy cipher msg data";
-    ret_val = -1;
     goto cleanup;
   }
 
   *ciphertext_pp = cipher_msg_data_cpy_p;
 
 cleanup:
-  if (ret_val < 0) {
+  if (err_msg != NULL) {
     esc_log(ctx_p, ESC_LOG_ERROR, "%s: %s", __func__, err_msg);
     esc_buf_free(cipher_msg_data_cpy_p);
   }
@@ -796,7 +791,7 @@ cleanup:
   session_cipher_free(cipher_p);
   SIGNAL_UNREF(cipher_msg_p);
 
-  return ret_val;
+  return err_msg;
 }
 
 int esc_message_decrypt_from_serialized (esc_buf * msg_p, esc_address * sender_addr_p, esc_context * ctx_p, esc_buf ** plaintext_pp) {
@@ -924,7 +919,7 @@ cleanup:
 }
 
 
-/*
+
 int esc_session_from_bundle(uint32_t pre_key_id,
                             esc_buf * pre_key_public_serialized_p,
                             uint32_t signed_pre_key_id,
@@ -1028,9 +1023,7 @@ int esc_session_delete(const char * user, int32_t device_id, esc_context * ctx_p
   return ret_val;
 }
 
-*/
 
-/*
 int esc_pre_key_message_process(esc_buf * pre_key_msg_serialized_p, esc_address * remote_address_p, esc_context * ctx_p, esc_buf ** plaintext_pp) {
   const char * err_msg = "";
   int ret_val = 0;
@@ -1136,7 +1129,7 @@ cleanup:
 
   return ret_val;
 }
-*/
+
 
 /*
 int esc_key_load_public_own(esc_context * ctx_p, esc_buf ** pubkey_data_pp) {
@@ -1219,31 +1212,145 @@ cleanup:
 }
 
 */
-
+/*
 esc_buf * esc_handshake_get_data(esc_handshake * handshake_p) {
   return handshake_p->handshake_msg_p;
 }
 
-int esc_handshake_initiate(esc_address * recipient_addr_p, esc_context * ctx_p, esc_handshake ** handshake_init_pp) {
+session_pre_key_bundle *create_pre_key_bundle(esc_context *ctx_p)
+{
+    signal_protocol_store_context *store = ctx_p->store_context_p;
+
+    uint32_t signed_pre_key_id;
+    signal_protocol_identity_get_local_registration_id(store, &signed_pre_key_id);
+
+    ratchet_identity_key_pair *our_identity_key = 0;
+    signal_protocol_identity_get_key_pair(store, &our_identity_key);
+
+    signal_buffer *public_data, *private_data;
+    esc_db_identity_get_key_pair(&public_data, &private_data, ctx_p);
+
+    ec_key_pair *signed_pre_key;
+    ec_key_pair_create(&signed_pre_key, ratchet_identity_key_pair_get_public(our_identity_key), ratchet_identity_key_pair_get_private(our_identity_key));
+             
+    int result = 0;
+
+    ec_key_pair *unsigned_pre_key = 0;
+    curve_generate_key_pair(ctx_p->global_context_p, &unsigned_pre_key);
+    //ck_assert_int_eq(result, 0);
+
+    int unsigned_pre_key_id = (rand() & 0x7FFFFFFF) % PRE_KEY_MEDIUM_MAX_VALUE;
+
+    ratchet_identity_key_pair *identity_key_pair = 0;
+    result = signal_protocol_identity_get_key_pair(store, &identity_key_pair);
+    //ck_assert_int_eq(result, 0);
+
+    ec_public_key *signed_pre_key_public = ec_key_pair_get_public(signed_pre_key);
+
+    signal_buffer *signed_pre_key_public_serialized = 0;
+    result = ec_public_key_serialize(&signed_pre_key_public_serialized, signed_pre_key_public);
+    //ck_assert_int_eq(result, 0);
+
+    signal_buffer *signature = 0;
+    result = curve_calculate_signature(ctx_p->global_context_p, &signature,
+            ratchet_identity_key_pair_get_private(identity_key_pair),
+            signal_buffer_data(signed_pre_key_public_serialized),
+            signal_buffer_len(signed_pre_key_public_serialized));
+    //ck_assert_int_eq(result, 0);
+
+    session_pre_key_bundle *pre_key_bundle = 0;
+    result = session_pre_key_bundle_create(&pre_key_bundle,
+            1, 1,
+            unsigned_pre_key_id,
+            ec_key_pair_get_public(unsigned_pre_key),
+            signed_pre_key_id, signed_pre_key_public,
+            signal_buffer_data(signature), signal_buffer_len(signature),
+            ratchet_identity_key_pair_get_public(identity_key_pair));
+    //ck_assert_int_eq(result, 0);
+
+    session_signed_pre_key *signed_pre_key_record = 0;
+    result = session_signed_pre_key_create(&signed_pre_key_record,
+            signed_pre_key_id, time(0), signed_pre_key,
+            signal_buffer_data(signature), signal_buffer_len(signature));
+    //ck_assert_int_eq(result, 0);
+
+    result = signal_protocol_signed_pre_key_store_key(store, signed_pre_key_record);
+    //ck_assert_int_eq(result, 0);
+
+    session_pre_key *pre_key_record = 0;
+    result = session_pre_key_create(&pre_key_record, unsigned_pre_key_id, unsigned_pre_key);
+    //ck_assert_int_eq(result, 0);
+
+    result = signal_protocol_pre_key_store_key(store, pre_key_record);
+    //ck_assert_int_eq(result, 0);
+
+    pre_key_signal_message *pre_key_message;
+    pre_key_signal_message_create(pre_key_message, 3, )
+    pre_key_signal_message_serialize(signal_buffer **buffer, const pre_key_signal_message *message);              
+
+    SIGNAL_UNREF(pre_key_record);
+    SIGNAL_UNREF(signed_pre_key_record);
+    SIGNAL_UNREF(identity_key_pair);
+    SIGNAL_UNREF(unsigned_pre_key);
+    signal_buffer_free(signed_pre_key_public_serialized);
+    signal_buffer_free(signature);
+
+    return pre_key_bundle;
+}
+
+int serialize_
+
+int esc_handshake_initiate(esc_address * recipient_addr_p, esc_context * ctx_p, session_cipher ** chipher, esc_handshake ** handshake_init_pp) {
+
+    signal_protocol_address address = {
+        "+14159998888", 12, 1
+    };
+
+    //* Create the session builders * /
+    session_builder *alice_session_builder = 0;
+    result = session_builder_create(&alice_session_builder, ctx_p->store_context_p, recipient_addr_p, ctx_p->global_context_p);
+
+    session_pre_key_bundle *alice_pre_key_bundle = create_pre_key_bundle(ctx_p);    
+
+    //* Create the session ciphers * /
+    session_cipher *alice_session_cipher = 0;
+    result = session_cipher_create(&alice_session_cipher, ctx_p->store_context_p, recipient_addr_p, ctx_p->global_context_p);
+
+    esc_handshake handshake;
+    handshake.session_builder_p = alice_session_builder;
+    
+
+
   return -1;
 }
 
 int esc_handshake_accept(esc_buf * msg_data_p, esc_address * sender_addr_p, esc_context * ctx_p, esc_handshake ** handshake_response_pp) {
-  // session_builder *builder = create_session_builder()
+
+    session_builder *alice_session_builder = 0;
+    result = session_builder_create(&alice_session_builder, alice_store, &bob_address, store->);
+
+
+    //* Process the pre key bundles * /
+    result = session_builder_process_pre_key_bundle(alice_session_builder, bob_pre_key_bundle);
+
+    //* Create the session cipher and encrypt the message * /
+    session_cipher *cipher;
+    session_cipher_create(&cipher, store_context, &address, store->);
+
   return -1;
 }
 
 int esc_handshake_acknowledge(esc_buf * msg_data_p, esc_handshake * handshake_p, esc_context * ctx_p) {
     return -1;
 }
-
+*/
 
 /**
 void init() {
 
-    signal_context *global_context;
-    signal_context_create(&global_context, user_data);
-    signal_context_set_crypto_provider(global_context, &provider);
-    signal_context_set_locking_functions(global_context, lock_function, unlock_function);
+    signal_context *store->;
+    signal_context_create(&store->, user_data);
+    signal_context_set_crypto_provider(store->, &provider);
+    signal_context_set_locking_functions(store->, lock_function, unlock_function);
 }
 **/

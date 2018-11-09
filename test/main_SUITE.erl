@@ -48,14 +48,14 @@ main_test(_) ->
     %ok = erl_signal:create_session(Alice, BobAddress),
     %ok = erl_signal:create_session(Bob, AliceAddress),
 
-    { ok, AliceHandshake } = erl_signal:handshake_initiate(Alice, BobAddress),
-    { ok, BobHandshake } = erl_signal:handshake_accept(Bob, AliceAddress, AliceHandshake#es_handshake.handshake),
-    ok = erl_signal:handshake_acknowledge(Alice, AliceHandshake, BobHandshake#es_handshake.handshake),
+%    { ok, AliceHandshake } = erl_signal:handshake_initiate(Alice, BobAddress),
+%    { ok, BobHandshake } = erl_signal:handshake_accept(Bob, AliceAddress, AliceHandshake#es_handshake.handshake),
+%    ok = erl_signal:handshake_acknowledge(Alice, AliceHandshake, BobHandshake#es_handshake.handshake),
 %%
 %%    true = erl_signal:is_session_exists_initiated(Alice, BobAddress),
 %%    true = erl_signal:is_session_exists_initiated(Bob, AliceAddress),
 %%
-%%    { ok, EncryptedHello1 } = erl_signal:encode(Alice, BobAddress, <<"hello from Alice">>),
+      { ok, EncryptedHello1 } = erl_signal:encode(Alice, BobAddress, <<"hello from Alice">>),
 %%    { ok, <<"hello from Alice">>} = erl_signal:decode(Bob, AliceAddress, EncryptedHello1),
 %%
 %%    { ok, EncryptedHello2 } = erl_signal:encode(Bob, AliceAddress, <<"hello from Bob">>),
