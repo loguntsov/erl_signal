@@ -5,6 +5,7 @@
 #include <list>
 #include <map>
 
+#include <erl_nif.h>
 
 
 #include "cJSON/cJSON.h"
@@ -26,6 +27,7 @@ class esc_storage {
                 const value get(const column column, const value default_value) const;
                 row_map::const_iterator begin() const;
                 row_map::const_iterator end() const;
+                ERL_NIF_TERM serialize(ErlNifEnv* env) const;
         };
 
         typedef std::string key;
@@ -50,6 +52,6 @@ class esc_storage {
         void clear();
         std::list <key> keys() const;
         int size() const;
-        //std::string serialize();
+        ERL_NIF_TERM serialize(ErlNifEnv* env) const;
         //int unserialize(const std::string str);
 };

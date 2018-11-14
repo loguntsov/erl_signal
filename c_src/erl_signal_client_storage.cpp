@@ -104,6 +104,29 @@ std::list <esc_storage::key> esc_storage::keys() const{
     return result;
 }
 
+
+ERL_NIF_TERM to_binary(ErlNifEnv*env,  const std::string &str) {
+    
+    ERL_NIF_TERM result;
+    ErlNifBinary binary;
+    enif_alloc_binary(str.size(), &binary);
+    memcpy((char *) binary.data, (char *) str.c_str(), str.size());    
+    result = enif_make_binary(env, &binary);
+    return result;
+
+}
+
+ERL_NIF_TERM esc_storage::serialize(ErlNifEnv* env) const {
+    ERL_NIF_TERM tail = enif_make_list(env, 0);
+    for(storage::const_iterator it=this->data.begin();it != this->data.end();it++) {
+        tail = enif_make_list_cell(env, 
+            enif_make_tuple2(env,
+                to_binary(env, it->first),
+                it->second.serialize(env)
+            ), tail);
+    }
+    return tail;
+}
 /*
 std::string esc_storage::serialize() {
     cJSON *json = cJSON_CreateObject();
@@ -169,4 +192,16 @@ esc_storage::row::row_map::const_iterator esc_storage::row::begin() const {
 
 esc_storage::row::row_map::const_iterator esc_storage::row::end() const {
     return this->data.end();
+}
+
+ERL_NIF_TERM esc_storage::row::serialize(ErlNifEnv* env) const {
+    ERL_NIF_TERM tail = enif_make_list(env, 0);
+    for(row_map::const_iterator it=this->data.begin();it != this->data.end();it++) {
+        tail = enif_make_list_cell(env, 
+            enif_make_tuple2(env,
+                to_binary(env, it->first),
+                to_binary(env, it->second)
+            ), tail);
+    }
+    return tail;
 }

@@ -212,7 +212,7 @@ const char * esc_handshake_accept(esc_buf * msg_data_p, esc_address * sender_add
  * @return 0 on success, negative on error.
  *
  */
-const char * esc_handshake_acknowledge(esc_buf * msg_data_p, session_builder *builder, esc_context * ctx_p, session_cipher **cipher, esc_address **address_from_p);
+const char * esc_handshake_acknowledge(esc_buf * msg_data_p, esc_address *address, esc_context * ctx_p, session_cipher **cipher, esc_address **address_from_p);
 
 /**
  * Frees the memory used by this struct and its members.
@@ -247,7 +247,7 @@ const char * esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_addres
  * @param plaintext_pp Will point to the plaintext afterwards. Has to be freed.
  * @return 0 on success, negative on error.
  */
-int esc_message_decrypt_from_serialized (esc_buf * msg_p, esc_address * sender_addr_p, esc_context * ctx_p, esc_buf ** plaintext_pp);
+const char * esc_message_decrypt_from_serialized (esc_buf * msg_p, esc_address * sender_addr_p, esc_context * ctx_p, esc_buf ** plaintext_pp);
 
 /**
  * Checks if an initiated session exists (and no pending synchronous handshake).

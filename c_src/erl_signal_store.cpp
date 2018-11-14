@@ -96,6 +96,8 @@ int esc_db_session_load(signal_buffer **record, signal_buffer **user_record, con
   int session_record_len = std::stoi(row.get("session_record_len", "0"));
   *record = signal_buffer_create((const uint8_t *) session_record.c_str(), session_record_len);  
 
+  // es_log_hex("load session record: ", (char *) session_record.c_str(), session_record_len);
+
   std::string user_record_str = row.get("user_record","");
   int user_record_len = std::stoi(row.get("user_record_len", "0"));
   *user_record = signal_buffer_create((const uint8_t *) user_record_str.c_str(), user_record_len);  
@@ -126,6 +128,13 @@ int esc_db_session_get_sub_device_sessions(signal_int_list ** sessions, const ch
 }
 
 int esc_db_session_store(const signal_protocol_address *address, uint8_t *record, size_t record_len, uint8_t *user_record, size_t user_record_len, void *user_data) {
+
+/*
+  es_log("save session");
+  es_log(address_string(address).c_str());
+  es_log_hex("session record: ", (char *) record, record_len);
+*/
+
   esc_storage::row row;
   row.store(esc_storage::column("name"), esc_storage::value(address->name));
   row.store(esc_storage::column("name_len"), esc_storage::value(std::to_string(address->name_len)));
@@ -150,10 +159,14 @@ int esc_db_session_contains(const signal_protocol_address * address, void * user
   std::string key = address_string(address);
   esc_context * esc_ctx_p = (esc_context *) user_data;
   esc_storage::row row = esc_ctx_p->session_store->get(key);
-
+  
+  es_log(key.c_str());
+  
   if (row.is_empty()) {
+    es_log("session not found");
     return 0;
   } else {
+    es_log("session found");    
     return 1;  
   }
 }
