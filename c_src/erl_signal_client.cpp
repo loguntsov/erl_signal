@@ -777,6 +777,8 @@ const char * esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_addres
     goto cleanup;
   }
 
+  es_log_hex("message: ", (char *) esc_buf_get_data(msg_p), esc_buf_get_len(msg_p));
+
   ret_val = session_cipher_encrypt(cipher_p, esc_buf_get_data(msg_p), esc_buf_get_len(msg_p), &cipher_msg_p);
 
   if (ret_val) {
@@ -792,6 +794,8 @@ const char * esc_message_encrypt_and_serialize(esc_buf * msg_p, const esc_addres
     err_msg = "failed to copy cipher msg data";
     goto cleanup;
   }
+
+  es_log_hex("encoded message: ", (char *) esc_buf_get_data(cipher_msg_data_cpy_p), esc_buf_get_len(cipher_msg_data_cpy_p));
 
   *ciphertext_pp = cipher_msg_data_cpy_p;
 
@@ -815,7 +819,7 @@ const char * esc_message_decrypt_from_serialized (esc_buf * msg_p, esc_address *
   //TODO: add session_cipher_set_decryption_callback maybe?
   //FIXME: check message type
 
-  signal_message * ciphertext_p = NULL;
+  pre_key_signal_message * ciphertext_p = NULL;
   session_cipher * cipher_p = NULL;
   esc_buf * plaintext_buf_p = NULL;
 
@@ -840,21 +844,26 @@ const char * esc_message_decrypt_from_serialized (esc_buf * msg_p, esc_address *
     goto cleanup;
   }
 
+  es_log_hex("sender`: ", (char *) sender_addr_p->name, sender_addr_p->name_len);
+
   ret_val = session_cipher_create(&cipher_p, ctx_p->store_context_p, sender_addr_p, ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to create session cipher";
     goto cleanup;
   }
 
-  ret_val = signal_message_deserialize(&ciphertext_p, esc_buf_get_data(msg_p), esc_buf_get_len(msg_p), ctx_p->global_context_p);
+  es_log_hex("des: ", (char *) esc_buf_get_data(msg_p), esc_buf_get_len(msg_p));
+
+  ret_val = pre_key_signal_message_deserialize(&ciphertext_p, esc_buf_get_data(msg_p), esc_buf_get_len(msg_p), ctx_p->global_context_p);
   if (ret_val) {
     std::string *c = new std::string(std::to_string(ret_val));
     err_msg = c->c_str(); // "failed to deserialize whisper msg";
     goto cleanup;
   }
-  ret_val = session_cipher_decrypt_signal_message(cipher_p, ciphertext_p, NULL, &plaintext_buf_p);
+  ret_val = session_cipher_decrypt_pre_key_signal_message(cipher_p, ciphertext_p, NULL, &plaintext_buf_p);
   if (ret_val) {
-    err_msg = "failed to decrypt cipher message";
+    err_msg = (new std::string(std::to_string(ret_val)))->c_str();     
+    //err_msg = "failed to decrypt cipher message";
     goto cleanup;
   }
 
@@ -1237,12 +1246,24 @@ esc_buf * esc_handshake_get_data(esc_handshake * handshake_p) {
 const char * create_pre_key_bundle(esc_address *address, esc_context *ctx_p, session_pre_key_bundle **bundle) {
   
     int ret;
+    const char * err_msg = NULL;
     signal_protocol_store_context *store = ctx_p->store_context_p;
 
     uint32_t signed_pre_key_id;
     signal_protocol_identity_get_local_registration_id(store, &signed_pre_key_id);
 
-    ratchet_identity_key_pair *our_identity_key = 0;
+    ratchet_identity_key_pair *our_identity_key = NULL;
+    session_pre_key *pre_key_record = NULL;
+    ratchet_identity_key_pair *identity_key_pair = NULL;    
+
+    int unsigned_pre_key_id = 0;
+    ec_public_key *signed_pre_key_public = NULL;
+
+    signal_buffer *signed_pre_key_public_serialized = NULL; 
+    signal_buffer *signature = NULL;       
+    session_pre_key_bundle *pre_key_bundle = NULL;    
+    session_signed_pre_key *signed_pre_key_record = NULL;    
+
     ret = signal_protocol_identity_get_key_pair(store, &our_identity_key);
     if (ret<0) {      
       return "cant_get_identity_key_pair";
@@ -1257,29 +1278,37 @@ const char * create_pre_key_bundle(esc_address *address, esc_context *ctx_p, ses
     int result = 0;
 
     ec_key_pair *unsigned_pre_key = 0;
-    curve_generate_key_pair(ctx_p->global_context_p, &unsigned_pre_key);
-    //ck_assert_int_eq(result, 0);
+    result = curve_generate_key_pair(ctx_p->global_context_p, &unsigned_pre_key);
+    if (result!=0) {
+      err_msg = "cant_generate_key_pair";
+      goto cleanup;
+    }
+    
+    unsigned_pre_key_id = (rand() & 0x7FFFFFFF) % PRE_KEY_MEDIUM_MAX_VALUE;
 
-    int unsigned_pre_key_id = (rand() & 0x7FFFFFFF) % PRE_KEY_MEDIUM_MAX_VALUE;
+    result = signal_protocol_identity_get_key_pair(store, &identity_key_pair);   
+    if (result!=0) {
+      err_msg = "cant_get_identity_pair";
+      goto cleanup;
+    }
 
-    ratchet_identity_key_pair *identity_key_pair = 0;
-    result = signal_protocol_identity_get_key_pair(store, &identity_key_pair);
-    //ck_assert_int_eq(result, 0);
+    signed_pre_key_public = ec_key_pair_get_public(signed_pre_key);
 
-    ec_public_key *signed_pre_key_public = ec_key_pair_get_public(signed_pre_key);
-
-    signal_buffer *signed_pre_key_public_serialized = 0;
     result = ec_public_key_serialize(&signed_pre_key_public_serialized, signed_pre_key_public);
-    //ck_assert_int_eq(result, 0);
+    if (result!=0) {
+      err_msg = "cant_serialize_public_key";
+      goto cleanup;
+    }
 
-    signal_buffer *signature = 0;
     result = curve_calculate_signature(ctx_p->global_context_p, &signature,
             ratchet_identity_key_pair_get_private(identity_key_pair),
             signal_buffer_data(signed_pre_key_public_serialized),
             signal_buffer_len(signed_pre_key_public_serialized));
-    //ck_assert_int_eq(result, 0);
+    if (result!=0) {
+      err_msg = "cant_calculate_curve_signature";
+      goto cleanup;
+    }   
 
-    session_pre_key_bundle *pre_key_bundle = 0;
     result = session_pre_key_bundle_create(&pre_key_bundle,
             1, // registration_id
             address->device_id,
@@ -1288,15 +1317,49 @@ const char * create_pre_key_bundle(esc_address *address, esc_context *ctx_p, ses
             signed_pre_key_id, signed_pre_key_public,
             signal_buffer_data(signature), signal_buffer_len(signature),
             ratchet_identity_key_pair_get_public(identity_key_pair));
-    //ck_assert_int_eq(result, 0);
+    if (result!=0) {
+      err_msg = "cant_create_session_pre_key_bundle";
+      goto cleanup;
+    }             
+   
+    result = session_signed_pre_key_create(&signed_pre_key_record,
+            signed_pre_key_id, time(0), signed_pre_key,
+            signal_buffer_data(signature), signal_buffer_len(signature));
+    if (result!=0) {
+      err_msg = "cant_create_session_signed_pre_key";
+      goto cleanup;
+    }    
 
+    result = signal_protocol_signed_pre_key_store_key(store, signed_pre_key_record);
+    if (result!=0) {
+      err_msg = "cant_store_session_signed_pre_key";
+      goto cleanup;
+    }      
+
+    result = session_pre_key_create(&pre_key_record, unsigned_pre_key_id, unsigned_pre_key);
+    if (result!=0) {
+      err_msg = "cant_create_session_pre_key";
+      goto cleanup;
+    }         
+
+    result = signal_protocol_pre_key_store_key(store, pre_key_record);
+    if (result!=0) {
+      err_msg = "cant_store_pre_key";
+      goto cleanup;
+    }         
+
+cleanup:
+    SIGNAL_UNREF(our_identity_key);
+    SIGNAL_UNREF(pre_key_record);
+    SIGNAL_UNREF(signed_pre_key_record);
     SIGNAL_UNREF(identity_key_pair);
     SIGNAL_UNREF(unsigned_pre_key);
     signal_buffer_free(signed_pre_key_public_serialized);
     signal_buffer_free(signature);
 
-    *bundle = pre_key_bundle;
-    return 0;
+    *bundle = (err_msg == NULL) ? pre_key_bundle : NULL;
+
+    return err_msg;
 }
 
 int session_pre_key_bundle_deserialize(esc_buf *buf, esc_context *ctx_p, session_pre_key_bundle **pre_key_bundle, esc_address **address_from ) {
@@ -1389,6 +1452,14 @@ int session_pre_key_bundle_deserialize(esc_buf *buf, esc_context *ctx_p, session
     result = curve_decode_point(&identity_key, &msg[idx], 33, ctx_p->global_context_p);
     if (result!=0) {
       return result;
+    }
+
+    idx+= 33;
+    int response_len = 123+username_len+signed_pre_key_signature_len;    
+    if (idx != response_len) {
+      es_log(std::string(std::to_string(idx)).c_str());
+      es_log(std::string(std::to_string(response_len)).c_str());
+      return -10001;
     }
 
     session_pre_key_bundle *bundle;
@@ -1502,8 +1573,6 @@ const char * session_pre_key_bundle_serialize(session_pre_key_bundle *bundle, es
   if (idx != response_len) {
     return "bad_serialisation_of_bundle";
   }
-
-  
 
   *buf = signal_buffer_create((uint8_t *) msg, response_len);
 

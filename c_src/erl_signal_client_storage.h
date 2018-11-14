@@ -8,8 +8,6 @@
 #include <erl_nif.h>
 
 
-#include "cJSON/cJSON.h"
-
 class esc_storage {
     public:        
 

@@ -55,19 +55,19 @@ main_test(_) ->
     true = erl_signal_nif:is_session_exists_initiated(Bob, AliceAddress),
 
     { ok, BobAddress } = erl_signal_nif:handshake_acknowledge(Alice, AliceAddress, BobHandshake),
-    % [] = erl_signal_nif:serialize(Alice),
-
     true = erl_signal_nif:is_session_exists_initiated(Alice, BobAddress),
 
-    Bin = <<"asdfkfjskldfjklsfjklsdjfkljsdklfjklsdjfkldasjflkjasdfhjasdhfkjashfkjhaskjhfkjasdhfkjashfkjvnxc,mnv,mxczn,mvn,mnsfjhjshfkjshgfuwryhtouy4o85y8275oiqwjgfiheoulholasrhvgoaehglaigliehaogihadglhdlgh,dhfgrhewotguhgljhd,nbvg,mxnb,mxcnbvjhdlushgoueyhrtghngb,.nb,mn,mxcvnbjchdfkljuhglhsg;fjsd;fj;asdfjksajfkljgldhfgkjhdfkjghorueyhtghgljdhfgljdfkgj;ksagfj;asfkj;sjfkljasdfjh">>,
-    { ok, EncryptedHello1 } = erl_signal_nif:encode(Alice, BobAddress, Bin),
-    true = (size(EncryptedHello1) >= size(Bin)),
-    Len = size(EncryptedHello1)-0,
+    Bin2 = <<"Hello from Bob">>,
+    { ok, EncryptedHello2 } = erl_signal_nif:encode(Bob, AliceAddress, Bin2),
+    { ok, Bin2} = erl_signal_nif:decode(Alice, BobAddress, EncryptedHello2),
 
-    { ok, Bin } = erl_signal_nif:decode(Alice, BobAddress, <<EncryptedHello1:Len/binary>>),
-%%
-%%    { ok, EncryptedHello2 } = erl_signal_nif:encode(Bob, AliceAddress, <<"hello from Bob">>),
-%%    { ok, <<"hello from Bob">>} = erl_signal_nif:decode(Alice, BobAddress, EncryptedHello2),
+    Bin1 = <<"Hello from Bob with love">>,
+    { ok, EncryptedHello3 } = erl_signal_nif:encode(Bob, AliceAddress, Bin1),
+    { ok, Bin1} = erl_signal_nif:decode(Alice, BobAddress, EncryptedHello3),
+
+    Bin3 = <<"Hello from Alice with love">>,
+    { ok, EncryptedHello1 } = erl_signal_nif:encode(Alice, BobAddress, Bin3),
+    { ok, Bin3 } = erl_signal_nif:decode(Bob, AliceAddress,  EncryptedHello1 ),
 
     ok.
 

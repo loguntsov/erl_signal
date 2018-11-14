@@ -386,8 +386,6 @@ ERL_NIF_TERM nif_esc_encode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     enif_alloc_binary(esc_buf_get_len(msg_encripted), &binary);
     memcpy((char *) binary.data, (char *) esc_buf_get_data(msg_encripted), esc_buf_get_len(msg_encripted));    
     
-    es_log_hex("encodeded: ", (char *) binary.data, binary.size);
-
     result_bin = enif_make_binary(env, &binary);
 
     ERL_NIF_TERM result = enif_make_tuple2(env,
@@ -426,6 +424,9 @@ ERL_NIF_TERM nif_esc_decode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     es_log_hex("decoded: ", (char *) buffer.data, buffer.size);
 
     err_msg = esc_message_decrypt_from_serialized(msg_p, &address, ctx_res_p->ctx_p, &msg_decripted);
+    if (err_msg) {
+        return make_response(env, "error", err_msg);
+    }
 
     ERL_NIF_TERM result_bin;
     ErlNifBinary binary;
