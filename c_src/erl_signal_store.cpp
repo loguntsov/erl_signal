@@ -13,7 +13,7 @@
 
 #include "erl_signal_client.h"
 #include "erl_signal_store.h"
-
+#include "erl_signal_log.h"
 
 #define INIT_STATUS_NAME "init_status"
 #define OWN_PUBLIC_KEY_NAME "own_public_key"
@@ -89,7 +89,7 @@ int esc_db_session_load(signal_buffer **record, signal_buffer **user_record, con
   if (row.is_empty()) {
     *record = NULL;
     *user_record = NULL;
-    return 1;
+    return 0;
   }
 
   std::string session_record = row.get("session_record","");
@@ -100,7 +100,7 @@ int esc_db_session_load(signal_buffer **record, signal_buffer **user_record, con
   int user_record_len = std::stoi(row.get("user_record_len", "0"));
   *user_record = signal_buffer_create((const uint8_t *) user_record_str.c_str(), user_record_len);  
 
-  return 0;
+  return 1;
 }
 
 int esc_db_session_get_sub_device_sessions(signal_int_list ** sessions, const char * name, size_t name_len, void * user_data) {
@@ -544,10 +544,10 @@ int esc_db_identity_set_key_pair(const ratchet_identity_key_pair * key_pair_p, v
   // 2 - key blob
   // 3 - length of the key
   // 4 - trusted (1 for true, 0 for false)
-
+  
   esc_context * esc_ctx_p = (esc_context *) user_data;
   int ret_val = 0;
-  //const char * err_msg = NULL;  
+  const char * err_msg = NULL;  
 
   esc_storage::row row_public;
   signal_buffer * pubkey_buf_p = NULL;
@@ -560,10 +560,11 @@ int esc_db_identity_set_key_pair(const ratchet_identity_key_pair * key_pair_p, v
   uint8_t * privkey_buf_data_p = NULL;
 
   if (ec_public_key_serialize(&pubkey_buf_p, ratchet_identity_key_pair_get_public(key_pair_p))) {
-    //err_msg = "Failed to allocate memory to serialize the public key";
+    err_msg = "Failed to allocate memory to serialize the public key";
     ret_val = SG_ERR_NOMEM;
     goto cleanup;
   }
+
   pubkey_buf_len = signal_buffer_len(pubkey_buf_p);
   pubkey_buf_data_p = signal_buffer_data(pubkey_buf_p);
 
@@ -574,11 +575,8 @@ int esc_db_identity_set_key_pair(const ratchet_identity_key_pair * key_pair_p, v
 
   esc_ctx_p->identity_key_store->set(OWN_PUBLIC_KEY_NAME, row_public);
 
-
-
-
   if (ec_private_key_serialize(&privkey_buf_p, ratchet_identity_key_pair_get_private(key_pair_p))) {
-    //err_msg = "Failed to allocate memory to serialize the private key";
+    err_msg = "Failed to allocate memory to serialize the private key";
     ret_val = SG_ERR_NOMEM;
     goto cleanup;
   }
@@ -586,6 +584,10 @@ int esc_db_identity_set_key_pair(const ratchet_identity_key_pair * key_pair_p, v
   privkey_buf_len = signal_buffer_len(privkey_buf_p);
   privkey_buf_data_p = signal_buffer_data(privkey_buf_p);  
   
+    
+  // es_log_hex("save public_blob  ", (char *) pubkey_buf_data_p, pubkey_buf_len);
+  // es_log_hex("save private_blob ", (char *) privkey_buf_data_p, privkey_buf_len);
+
   row_private.store("name", OWN_PRIVATE_KEY_NAME);
   row_private.store("blob", std::string((char *) privkey_buf_data_p, privkey_buf_len));
   row_private.store("blob_len", std::to_string(privkey_buf_len));  
@@ -600,10 +602,15 @@ cleanup:
   if (privkey_buf_p) {
     signal_buffer_bzero_free(privkey_buf_p);
   }
+  if (!err_msg) {
+    es_log(err_msg);
+  }
+
   return ret_val;
 }
 
 int esc_db_identity_get_key_pair(signal_buffer ** public_data, signal_buffer ** private_data, void * user_data) {
+
   esc_context * esc_ctx_p = (esc_context *) user_data;
   int ret_val = 0;
   const char * err_msg = NULL;  
@@ -637,10 +644,10 @@ int esc_db_identity_get_key_pair(signal_buffer ** public_data, signal_buffer ** 
     goto cleanup;
   }
 
-  private_blob = row_public.get("blob", "");
-  privkey_buf_len = std::stoi(row_public.get("blob_len", "0"));
+  private_blob = row_private.get("blob", "");
+  privkey_buf_len = std::stoi(row_private.get("blob_len", "0"));
 
-  privkey_buf_p = signal_buffer_create((uint8_t *) public_blob.c_str(), privkey_buf_len);
+  privkey_buf_p = signal_buffer_create((uint8_t *) private_blob.c_str(), privkey_buf_len);
 
   *public_data = pubkey_buf_p;
   *private_data = privkey_buf_p;
@@ -653,8 +660,12 @@ cleanup:
     if (privkey_buf_p) {
       signal_buffer_bzero_free(privkey_buf_p);
     }
+    es_log(err_msg);
+  } else {
+    //es_log_hex("load public_blob  ",public_blob.c_str(), public_blob.size());
+    //es_log_hex("load private_blob ",private_blob.c_str(), private_blob.size());
   }
-  (void) err_msg;
+
   return ret_val;
 }
 

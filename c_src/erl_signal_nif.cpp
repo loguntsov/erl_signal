@@ -4,9 +4,12 @@
 
 #include "libsignal-c/signal_protocol.h"
 #include "libsignal-c/session_builder.h"
+#include "libsignal-c/session_cipher.h"
 
 #include "erl_signal_client.h"
 #include "erl_signal_client_storage.h"
+
+#include "erl_signal_log.h"
 
 typedef struct {
     esc_context * ctx_p;
@@ -72,48 +75,31 @@ const char * create_signal_protocol_address(ErlNifEnv* env, const ERL_NIF_TERM e
     unsigned int device_id;
 
     if (!enif_get_uint(env, array[2], &device_id)) {
-        return "deviceid_is_not_integer";
+        return "device_id_is_not_integer";
     }
+
+        es_log_hex("address-1: ", (char *) buffer.data, buffer.size);
 
     result->name = (char *) buffer.data;
     result->name_len = buffer.size;
     result->device_id = device_id;
 
+    es_log_hex("device_id: ", (char * ) &device_id, 4);
+
     return NULL;
 }
 
-int create_handshake(ErlNifEnv* env, const ERL_NIF_TERM es_handshake, esc_handshake **handshake) {
-    
-    int arity; 
-    const ERL_NIF_TERM *array = NULL; 
-
-    if(enif_get_tuple(env, es_handshake, &arity, &array) != 3) { \
-        return -1;
-    }    
-    
-    session_builder_resource *builder;
-
-    if (!enif_get_resource(env, array[1], SESSION_BUILDER_RESOURCE, (void**)&builder)) {
-        return -1;
-    }
-
-    ErlNifBinary buffer;
-    if (!enif_inspect_binary(env, array[2], &buffer)) {
-	    return -2;
-    }
-
-    esc_handshake *h = new esc_handshake();
-    h->session_builder_p = builder->session_builder_p;
-    h->handshake_msg_p = signal_buffer_create(buffer.data, buffer.size);
-
-    *handshake = h;
-
-    return 0;
-}
-
-void destroy_handshake(esc_handshake *handshake) {
-    signal_buffer_free(handshake->handshake_msg_p);
-    delete handshake;
+ERL_NIF_TERM construct_es_address_record(ErlNifEnv* env, esc_address *record) {
+    ERL_NIF_TERM address_bin;
+    ErlNifBinary binary;
+    enif_alloc_binary(record->name_len, &binary);
+    memcpy((char *) binary.data, (char *) record->name, record->name_len);    
+    address_bin = enif_make_binary(env, &binary);
+    return enif_make_tuple3(env,
+        enif_make_atom(env, "es_address"),
+        address_bin,
+        enif_make_int(env, record->device_id)
+    );
 }
 
 ERL_NIF_TERM nif_esc_new(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -139,36 +125,24 @@ ERL_NIF_TERM nif_esc_new(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
 	ERL_NIF_TERM result = enif_make_resource(env, ctx_res_p);
     //enif_release_resource(ctx_res_p);
-
+    es_log("");    
+    es_log("created new - ok");
 	return enif_make_tuple2(env, 
         enif_make_atom(env, "ok"), 
         result
     );
 }
 
-ERL_NIF_TERM nif_esc_generate_identity_keys(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    
+ERL_NIF_TERM nif_esc_generate_identity_keys(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {    
     context_resource *ctx_res_p = NULL;
     const char * err_msg = NULL;
     if (!enif_get_resource(env, argv[0], CONTEXT_RESOURCE, (void**)&ctx_res_p)) {
         return enif_make_badarg(env);
     }
-
-/*
-    {
-        esc_storage k;
-        esc_storage::row row;
-        row.store(std::string("column"), std::string("asd")),
-        k.set(std::string("test"), row);
-        k.clear();
-    }
-*/
-//*
     err_msg = esc_generate_identity_keys(ctx_res_p->ctx_p);
     if (err_msg != NULL) {
         return enif_raise_exception(env, make_response(env, "badarg", err_msg));
     }
-//*/   
     return enif_make_atom(env, "ok");
 }
 
@@ -201,25 +175,175 @@ ERL_NIF_TERM nif_esc_is_session_exists_initiated(ErlNifEnv* env, int argc, const
 }
 
 ERL_NIF_TERM nif_esc_handshake_initiate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    context_resource *ctx_res_p = NULL;
+    const char * err_msg;
+    if (!enif_get_resource(env, argv[0], CONTEXT_RESOURCE, (void**)&ctx_res_p)) {
+        return enif_make_badarg(env);
+    }
 
+    signal_protocol_address sender_address;
+    const char * ret_val = create_signal_protocol_address(env, argv[1], &sender_address);
+    if(ret_val != NULL) {
+        return enif_raise_exception(env,
+            make_response(env, "error", ret_val)
+        );
+    }
 
-    return enif_raise_exception(env, make_response(env, "error", "not_implemented"));
+    signal_protocol_address recepient_address;
+    ret_val = create_signal_protocol_address(env, argv[2], &recepient_address);
+    if(ret_val != NULL) {
+        return enif_raise_exception(env,
+            make_response(env, "error", ret_val)
+        );
+    }
+
+    int result;
+    session_cipher *cipher;
+    session_builder *builder;
+    esc_buf *response;    
+
+    err_msg = esc_handshake_initiate(&sender_address, &recepient_address, ctx_res_p->ctx_p, &cipher, &builder, &response);
+    if (err_msg != NULL) {
+        return enif_raise_exception(env, make_response(env, "error", err_msg));
+    }
+
+    session_cipher_resource * cipher_res_p = (session_cipher_resource*) enif_alloc_resource(SESSION_CIPHER_RESOURCE, sizeof(session_cipher_resource));
+    cipher_res_p->session_cipher_p = cipher;
+    ERL_NIF_TERM cipher_term = enif_make_resource(env, cipher_res_p);
+    //enif_release_resource(cipher_res_p);
+
+    session_builder_resource * builder_res_p = (session_builder_resource*) enif_alloc_resource(SESSION_BUILDER_RESOURCE, sizeof(session_cipher_resource));
+    builder_res_p->session_builder_p = builder;
+    ERL_NIF_TERM builder_term = enif_make_resource(env, builder_res_p);
+    //enif_release_resource(builder_res_p);    
+
+    ERL_NIF_TERM response_bin;
+    ErlNifBinary binary;
+    enif_alloc_binary(esc_buf_get_len(response), &binary);
+    memcpy((char *) binary.data, (char *) esc_buf_get_data(response), esc_buf_get_len(response));    
+    response_bin = enif_make_binary(env, &binary);
+
+    esc_buf_free(response);
+    //free(esc_buf_get_data(response));    
+
+    return enif_make_tuple4(env, 
+        enif_make_atom(env, "ok"),
+        cipher_term,
+        builder_term,
+        response_bin
+    );
+
+    // return enif_raise_exception(env, make_response(env, "error", "not_implemented"));
 };
 
 ERL_NIF_TERM nif_esc_handshake_accept(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    context_resource *ctx_res_p = NULL;
+    const char * err_msg;
+    if (!enif_get_resource(env, argv[0], CONTEXT_RESOURCE, (void**)&ctx_res_p)) {
+        return enif_raise_exception(env, 
+            make_response(env, "badarg","bad_context")
+        );
+    }
 
+    signal_protocol_address sender_address;
+    const char * ret_val = create_signal_protocol_address(env, argv[1], &sender_address);
+    if(ret_val != NULL) {
+        return enif_raise_exception(env,
+            make_response(env, "badarg", ret_val)
+        );
+    }
 
-    return enif_raise_exception(env, make_response(env, "error", "not_implemented"));
+    es_log_hex("address0: ", sender_address.name, sender_address.name_len);
+
+    ErlNifBinary handshake_bin;
+    if (!enif_inspect_binary(env, argv[2], &handshake_bin)) {
+        return make_response(env, "badarg", "handshake");
+    }
+
+    esc_buf *buf = esc_buf_create(handshake_bin.data, handshake_bin.size);
+    session_cipher *cipher = NULL;
+    session_builder *builder = NULL;  
+    esc_buf *response = NULL;
+    
+    esc_address *address_from_p = NULL;
+    err_msg = esc_handshake_accept(buf, &sender_address, ctx_res_p->ctx_p, &cipher, &builder, &address_from_p, &response);
+    esc_buf_free(buf);     
+    if (err_msg!=NULL) {      
+        return make_response(env, "error", err_msg);
+    }
+
+    session_cipher_resource * cipher_res_p = (session_cipher_resource*) enif_alloc_resource(SESSION_CIPHER_RESOURCE, sizeof(session_cipher_resource));
+    cipher_res_p->session_cipher_p = cipher;
+    ERL_NIF_TERM cipher_term = enif_make_resource(env, cipher_res_p);
+    //enif_release_resource(cipher_res_p);
+
+    session_builder_resource * builder_res_p = (session_builder_resource*) enif_alloc_resource(SESSION_BUILDER_RESOURCE, sizeof(session_cipher_resource));
+    builder_res_p->session_builder_p = builder;
+    ERL_NIF_TERM builder_term = enif_make_resource(env, builder_res_p);
+    //enif_release_resource(builder_res_p);    
+
+    ERL_NIF_TERM response_bin;
+    ErlNifBinary binary;
+    enif_alloc_binary(esc_buf_get_len(response), &binary);
+    memcpy((char *) binary.data, (char *) esc_buf_get_data(response), esc_buf_get_len(response));    
+    response_bin = enif_make_binary(env, &binary);
+
+    es_log_hex("handshake: ", (char * ) binary.data, binary.size);
+
+    return enif_make_tuple5(env, 
+        enif_make_atom(env, "ok"),
+        cipher_term,
+        builder_term,
+        construct_es_address_record(env, address_from_p),
+        response_bin
+    );
 };
 
 ERL_NIF_TERM nif_esc_handshake_acknowledge(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    const char * err_msg;
 
-    /* Process the pre key bundles */
-//    result = session_builder_process_pre_key_bundle(alice_session_builder, bob_pre_key_bundle);
+    context_resource *ctx_res_p = NULL;
+    if (!enif_get_resource(env, argv[0], CONTEXT_RESOURCE, (void**)&ctx_res_p)) {
+        return enif_raise_exception(env, 
+            make_response(env, "badarg","bad_context")
+        );
+    }
 
+    session_builder_resource *builder_res_p = NULL;
+    if (!enif_get_resource(env, argv[1], SESSION_BUILDER_RESOURCE, (void**)&builder_res_p)) {
+        return enif_raise_exception(env, 
+            make_response(env, "badarg","bad_session_builder")
+        );
+    }
 
-    return enif_raise_exception(env, make_response(env, "error", "not_implemented"));
-};
+    ErlNifBinary handshake_bin;
+    if (!enif_inspect_binary(env, argv[2], &handshake_bin)) {
+        return enif_raise_exception(env,
+            make_response(env, "badarg", "handshake")
+        );
+    }
+
+    esc_buf *buf = esc_buf_create(handshake_bin.data, handshake_bin.size);
+    session_cipher *cipher = NULL;
+    esc_address *address_from_p = NULL;
+
+    err_msg = esc_handshake_acknowledge(buf, builder_res_p->session_builder_p, ctx_res_p->ctx_p, &cipher, &address_from_p);
+    esc_buf_free(buf);     
+    if (err_msg!=NULL) {
+        return make_response(env, "error", err_msg);
+    }
+
+    session_cipher_resource * cipher_res_p = (session_cipher_resource*) enif_alloc_resource(SESSION_CIPHER_RESOURCE, sizeof(session_cipher_resource));
+    cipher_res_p->session_cipher_p = cipher;
+    ERL_NIF_TERM cipher_term = enif_make_resource(env, cipher_res_p);
+
+    ERL_NIF_TERM address_from_term = construct_es_address_record(env, address_from_p);
+
+    return enif_make_tuple2(env,
+        enif_make_atom(env, "ok"),
+        address_from_term
+    );
+}
 
 ERL_NIF_TERM nif_esc_encode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
@@ -269,20 +393,19 @@ ERL_NIF_TERM nif_esc_decode(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_raise_exception(env, make_response(env, "error", "not_implemented"));
 };
 
-
 void esc_context_resource_destroy(ErlNifEnv* env, void* arg) {
     context_resource *ctx_res_p = (context_resource *) arg;
-    SIGNAL_UNREF(ctx_res_p->ctx_p);
+    esc_context_destroy_all(ctx_res_p->ctx_p);
 }
 
 void esc_session_builder_resource_destroy(ErlNifEnv* env, void* arg) {
     session_builder_resource * r = (session_builder_resource *) arg;
-    SIGNAL_UNREF(r->session_builder_p);
+    session_builder_free(r->session_builder_p);
 }
 
 void esc_session_cipher_resource_destroy(ErlNifEnv* env, void* arg) {
     session_cipher_resource *r = ( session_cipher_resource * ) arg;
-    SIGNAL_UNREF(r->session_cipher_p);
+    session_cipher_free(r->session_cipher_p);
 }
 
 extern "C" {
@@ -316,9 +439,9 @@ extern "C" {
             {"new", 0, nif_esc_new},
             {"generate_identity_keys", 1, nif_esc_generate_identity_keys},
             {"is_session_exists_initiated", 2, nif_esc_is_session_exists_initiated },
-//            {"handshake_initiate", 2, nif_esc_handshake_initiate },
-//            {"handshake_accept", 3, nif_esc_handshake_accept },
-//            {"handshake_acknowledge", 3, nif_esc_handshake_acknowledge },
+            {"handshake_initiate", 3, nif_esc_handshake_initiate },
+            {"handshake_accept", 3, nif_esc_handshake_accept },
+            {"handshake_acknowledge", 3, nif_esc_handshake_acknowledge },
             {"encode", 3, nif_esc_encode },
             {"decode", 3, nif_esc_decode }            
     };

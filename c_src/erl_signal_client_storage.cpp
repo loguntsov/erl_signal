@@ -153,7 +153,7 @@ int esc_storage::size() const {
 const esc_storage::value esc_storage::row::get(const column column, const value default_value) const{
     row_map::const_iterator iterator = this->data.find(column);
     if (iterator == this->data.end()) {
-        return value("");
+        return default_value;
     } else {
         return iterator->second;
     }

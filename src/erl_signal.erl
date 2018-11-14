@@ -6,9 +6,9 @@
     new/0,
     generate_identity_keys/1,
     is_session_exists_initiated/2, 
-%%    handshake_initiate/2,
-%%    handshake_accept/3,
-%%    handshake_acknowledge/4,
+    handshake_initiate/3,
+    handshake_accept/3,
+    handshake_acknowledge/3,
     encode/3, decode/3
 ]).
 
@@ -21,15 +21,14 @@ generate_identity_keys(Session) ->
 is_session_exists_initiated(Session, MyAddress) when ?IS_ES_ADDRESS(MyAddress) ->
     erl_signal_nif:is_session_exists_initiated(Session, MyAddress).
 
-%%handshake_initiate(Session, ToAddress) when ?IS_ES_ADDRESS(ToAddress) ->
-%%    erl_signal_nif:handshake_initiate(Session, ToAddress).
-%%
-%%
-%%handshake_accept(Session, FromAddress, Handshake) when  ?IS_ES_ADDRESS(FromAddress), is_binary(Handshake) ->
-%%    erl_signal_nif:handshake_accept(Session, FromAddress, Handshake).
-%%
-%%handshake_acknowledge(Session, Chipher, MyHandshake, AcceptedHandshake) when ?IS_ES_HANDSHAKE(MyHandshake), is_binary(AcceptedHandshake) ->
-%%    erl_signal_nif:handshake_acknowledge(Session, Chipher, MyHandshake, AcceptedHandshake).
+handshake_initiate(Session, FromAddress, ToAddress) when ?IS_ES_ADDRESS(ToAddress) ->
+    erl_signal_nif:handshake_initiate(Session, FromAddress, ToAddress).
+
+handshake_accept(Session, FromAddress, Binary) when is_binary(Binary) ->
+    erl_signal_nif:handshake_accept(Session, FromAddress, Binary).
+
+handshake_acknowledge(Session, SessionBuilder, Binary) when is_binary(Binary) ->
+    erl_signal_nif:handshake_acknowledge(Session, SessionBuilder, Binary).
 
 encode(Session, ToAddress, Binary) when ?IS_ES_ADDRESS(ToAddress), is_binary(Binary) ->
     erl_signal_nif:encode(Session, ToAddress, Binary).

@@ -190,7 +190,7 @@ esc_buf * esc_handshake_get_data(esc_handshake * handshake_p);
  * @param handshake_pp The handshake struct to keep for the next steps.
  * @return 0 on success, negative on error
  */
-//int esc_handshake_initiate(esc_address * recipient_addr_p, esc_context * ctx_p, esc_handshake ** handshake_init_pp);
+const char * esc_handshake_initiate(esc_address *sender_addr_p, esc_address *recipient_addr_p, esc_context * ctx_p, session_cipher **cipher, session_builder **builder, esc_buf **response);
 
 /**
  * Second step of the session establishment, is called by the recipient.
@@ -201,7 +201,7 @@ esc_buf * esc_handshake_get_data(esc_handshake * handshake_p);
  * @param handshake_response_pp Will point to the response message if successful, unset otherwise. Has to be freed using esc_handshake_destroy().
  * @return 0 on success, negative on error.
  */
-//int esc_handshake_accept(esc_buf * msg_data_p, esc_address * sender_addr_p, esc_context * ctx_p, esc_handshake ** handshake_response_pp);
+const char * esc_handshake_accept(esc_buf * msg_data_p, esc_address * sender_addr_p, esc_context * ctx_p, session_cipher **cipher, session_builder **builder, esc_address ** address_from_p, esc_buf **response);
 
 /**
  * Third and final step of session establishment.
@@ -212,7 +212,7 @@ esc_buf * esc_handshake_get_data(esc_handshake * handshake_p);
  * @return 0 on success, negative on error.
  *
  */
-//int esc_handshake_acknowledge(esc_buf * msg_data_p, esc_handshake * handshake_p, esc_context * ctx_p);
+const char * esc_handshake_acknowledge(esc_buf * msg_data_p, session_builder *builder, esc_context * ctx_p, session_cipher **cipher, esc_address **address_from_p);
 
 /**
  * Frees the memory used by this struct and its members.

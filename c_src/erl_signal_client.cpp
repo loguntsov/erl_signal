@@ -23,11 +23,18 @@
 #include "erl_signal_crypto.h"
 #include "erl_signal_client_storage.h"
 
+#include "erl_signal_log.h"
+
 #include <ctime>
 
 void recursive_mutex_lock(void * user_data);
 void recursive_mutex_unlock(void * user_data);
 
+
+void si_log(int level, const char *message, size_t len, void *user_data) {
+  std::string c = std::string(message, len);
+  std::cout << c << "\n";
+}
 
 int esc_buf_list_item_create(esc_buf_list_item ** item_pp, uint32_t * id_p, esc_buf * data_p) {
   esc_buf_list_item * item_p = new esc_buf_list_item();
@@ -423,6 +430,7 @@ void esc_buf_free(esc_buf * buf) {
 }
 
 int esc_init(esc_context * ctx_p) {
+  esc_context_set_log_func(ctx_p, &si_log);
   esc_log(ctx_p, ESC_LOG_INFO, "%s: initializing axolotl client", __func__);
   const char * err_msg = " ";
   int ret_val = 0;
@@ -496,6 +504,8 @@ int esc_init(esc_context * ctx_p) {
     ret_val = -1;
     goto cleanup;
   }
+
+  signal_context_set_log_function(ctx_p->global_context_p, &si_log);
   esc_log(ctx_p, ESC_LOG_DEBUG, "%s: created and set axolotl context", __func__);
 
   if (signal_context_set_crypto_provider(ctx_p->global_context_p, &crypto_provider)) {
@@ -670,11 +680,12 @@ const char * esc_generate_identity_keys(esc_context * ctx_p) {
   uint32_t registration_id;
   signal_protocol_key_helper_pre_key_list_node *pre_keys_head;
   session_signed_pre_key *signed_pre_key;
+  ec_public_key *p;
 
   ret_val = signal_protocol_key_helper_generate_identity_key_pair(&identity_key_pair, ctx_p->global_context_p);
   if (ret_val) {
     err_msg = "failed to generate the identity key pair";
-    goto cleanup;
+    goto cleanup;    
   }  
   
   ret_val = signal_protocol_key_helper_generate_registration_id(&registration_id, 0, ctx_p->global_context_p);
@@ -694,7 +705,6 @@ const char * esc_generate_identity_keys(esc_context * ctx_p) {
     err_msg = "failed to generate signed pre key";
     goto cleanup;
   }
-
 
   ret_val = esc_db_identity_set_key_pair(identity_key_pair, ctx_p);
   if (ret_val) {
@@ -719,7 +729,8 @@ const char * esc_generate_identity_keys(esc_context * ctx_p) {
 
 cleanup:
   if ( err_msg != NULL ) {
-    esc_log(ctx_p, ESC_LOG_ERROR, "%s: %s", __func__, err_msg);
+    es_log(err_msg);
+    //esc_log(ctx_p, ESC_LOG_ERROR, "%s: %s", __func__, err_msg);
   }
 
   SIGNAL_UNREF(identity_key_pair);
@@ -1023,7 +1034,7 @@ int esc_session_delete(const char * user, int32_t device_id, esc_context * ctx_p
   return ret_val;
 }
 
-
+/*
 int esc_pre_key_message_process(esc_buf * pre_key_msg_serialized_p, esc_address * remote_address_p, esc_context * ctx_p, esc_buf ** plaintext_pp) {
   const char * err_msg = "";
   int ret_val = 0;
@@ -1217,15 +1228,21 @@ esc_buf * esc_handshake_get_data(esc_handshake * handshake_p) {
   return handshake_p->handshake_msg_p;
 }
 
-session_pre_key_bundle *create_pre_key_bundle(esc_context *ctx_p)
-{
+*/
+
+const char * create_pre_key_bundle(esc_address *address, esc_context *ctx_p, session_pre_key_bundle **bundle) {
+  
+    int ret;
     signal_protocol_store_context *store = ctx_p->store_context_p;
 
     uint32_t signed_pre_key_id;
     signal_protocol_identity_get_local_registration_id(store, &signed_pre_key_id);
 
     ratchet_identity_key_pair *our_identity_key = 0;
-    signal_protocol_identity_get_key_pair(store, &our_identity_key);
+    ret = signal_protocol_identity_get_key_pair(store, &our_identity_key);
+    if (ret<0) {      
+      return "cant_get_identity_key_pair";
+    }
 
     signal_buffer *public_data, *private_data;
     esc_db_identity_get_key_pair(&public_data, &private_data, ctx_p);
@@ -1260,7 +1277,8 @@ session_pre_key_bundle *create_pre_key_bundle(esc_context *ctx_p)
 
     session_pre_key_bundle *pre_key_bundle = 0;
     result = session_pre_key_bundle_create(&pre_key_bundle,
-            1, 1,
+            1, // registration_id
+            address->device_id,
             unsigned_pre_key_id,
             ec_key_pair_get_public(unsigned_pre_key),
             signed_pre_key_id, signed_pre_key_public,
@@ -1284,10 +1302,6 @@ session_pre_key_bundle *create_pre_key_bundle(esc_context *ctx_p)
     result = signal_protocol_pre_key_store_key(store, pre_key_record);
     //ck_assert_int_eq(result, 0);
 
-    pre_key_signal_message *pre_key_message;
-    pre_key_signal_message_create(pre_key_message, 3, )
-    pre_key_signal_message_serialize(signal_buffer **buffer, const pre_key_signal_message *message);              
-
     SIGNAL_UNREF(pre_key_record);
     SIGNAL_UNREF(signed_pre_key_record);
     SIGNAL_UNREF(identity_key_pair);
@@ -1295,55 +1309,353 @@ session_pre_key_bundle *create_pre_key_bundle(esc_context *ctx_p)
     signal_buffer_free(signed_pre_key_public_serialized);
     signal_buffer_free(signature);
 
-    return pre_key_bundle;
+    *bundle = pre_key_bundle;
+    return 0;
 }
 
-int serialize_
+int session_pre_key_bundle_deserialize(esc_buf *buf, esc_context *ctx_p, session_pre_key_bundle **pre_key_bundle, esc_address **address_from ) {
+    int result = 0;
+    uint32_t registration_id;  // any number - not used in our case - lets set it to 0   
+    uint32_t device_id;
+    uint32_t username_len;
+    uint8_t username[50] = {0};
+    uint32_t pre_key_id;
+    ec_public_key * pre_key_public;
+    uint32_t signed_pre_key_id;
+    ec_public_key * signed_pre_key_public;
+    uint32_t signed_pre_key_signature_len;
+    uint8_t signed_pre_key_signature[64];
+    ec_public_key * identity_key;
+  
+    es_log("a1");
+    unsigned char * msg = esc_buf_get_data(buf);
+    int buf_len = esc_buf_get_len(buf);
 
-int esc_handshake_initiate(esc_address * recipient_addr_p, esc_context * ctx_p, session_cipher ** chipher, esc_handshake ** handshake_init_pp) {
+    if (buf_len<12) {
+      return -1000;
+    }
 
-    signal_protocol_address address = {
-        "+14159998888", 12, 1
-    };
+    memcpy(&registration_id, &msg[0], 4);
 
-    //* Create the session builders * /
-    session_builder *alice_session_builder = 0;
+    memcpy(&device_id, &msg[4], 4);
+
+    memcpy(&username_len, &msg[8], 4);
+
+    char *name = (char *) malloc(username_len+1);    
+
+    memset(name, 0, username_len+1);
+    memcpy(name, &msg[12], username_len);
+
+    es_log_hex("address: ", name, username_len);    
+
+    uint16_t idx = 12 + username_len;
+    if (idx>buf_len) {
+        return -1000;
+    }
+    memcpy(&pre_key_id, &msg[idx], 4);
+
+    es_log("a2");
+    idx += 4;
+    if (idx>buf_len) {
+        return -1000;
+    }
+    result = curve_decode_point(&pre_key_public, &msg[idx], 33, ctx_p->global_context_p);
+    if (result!=0) {
+        return result;
+    }
+    es_log("a3");
+
+    idx += 33;
+    if (idx>buf_len) {
+        return -1000;
+    }
+    memcpy(&signed_pre_key_id, &msg[idx], 4);
+
+    idx += 4;
+    if (idx>buf_len) {
+        return -1000;
+    }
+
+    result = curve_decode_point(&signed_pre_key_public, &msg[idx], 33, ctx_p->global_context_p);
+    if (result!=0) {
+      return result;      
+    }
+    es_log("a4");
+    
+    idx += 33;
+    if (idx>buf_len) {
+        return -1000;
+    }
+    memcpy(&signed_pre_key_signature_len, &msg[idx], 4);
+    es_log("a40");
+    idx += 4;
+    if (idx>buf_len) {
+        return -1000;
+    }
+    es_log("a41");
+    if (signed_pre_key_signature_len > 64) {
+      return -1001;
+    }
+    es_log("a42");    
+    memcpy(signed_pre_key_signature, &msg[idx], signed_pre_key_signature_len);
+    idx += signed_pre_key_signature_len;
+    if (idx>buf_len) {
+        return -1000;
+    }
+
+    es_log("a5");
+    result = curve_decode_point(&identity_key, &msg[idx], 33, ctx_p->global_context_p);
+    if (result!=0) {
+      return result;
+    }
+
+    session_pre_key_bundle *bundle;
+
+    es_log("a6");
+    result = session_pre_key_bundle_create(&bundle,
+            registration_id, // registration ID
+            device_id, /* device ID */
+            pre_key_id, /* pre key ID */
+            pre_key_public,
+            signed_pre_key_id, /* signed pre key ID */
+            signed_pre_key_public,
+            signed_pre_key_signature,
+            (size_t)signed_pre_key_signature_len,
+            identity_key);
+    if (result!=0) {
+      return result;
+    }
+    es_log("a7");
+    
+    esc_address *address = (esc_address *) malloc(sizeof(esc_address));
+
+    address->name_len = username_len;
+    address->name = name;  
+    address->device_id = device_id;
+
+    *pre_key_bundle = bundle;
+    *address_from = address;
+
+    return 0;
+}
+
+const char * session_pre_key_bundle_serialize(session_pre_key_bundle *bundle, esc_address *address_from, esc_context *ctx_p, esc_buf **buf ) {
+  int len = 0;
+
+  uint32_t registration_id = session_pre_key_bundle_get_registration_id(bundle);  // any number - not used in our case - lets set it to 0   
+  uint32_t device_id = session_pre_key_bundle_get_device_id(bundle);
+  uint32_t pre_key_id = session_pre_key_bundle_get_pre_key_id(bundle);
+  ec_public_key * pre_key_public = session_pre_key_bundle_get_pre_key(bundle);
+  uint32_t signed_pre_key_id = session_pre_key_bundle_get_signed_pre_key_id(bundle);
+  ec_public_key * signed_pre_key_public = session_pre_key_bundle_get_signed_pre_key(bundle);
+
+  signal_buffer *signature = session_pre_key_bundle_get_signed_pre_key_signature(bundle);
+  uint32_t signed_pre_key_signature_len = signal_buffer_len(signature);
+  if (signed_pre_key_signature_len>64) {
+    return "bad_signed_pre_key_signature_len";
+  }
+
+  uint8_t *signed_pre_key_signature = signal_buffer_data(signature);
+  ec_public_key * identity_key = session_pre_key_bundle_get_identity_key(bundle);
+
+  int response_len = 123+address_from->name_len+signed_pre_key_signature_len;
+  char *msg = (char *) malloc(response_len);
+  memset(msg, 0, response_len);  
+
+  memcpy(&msg[0], &registration_id, 4);
+
+  memcpy(&msg[4], &device_id, 4);
+
+  es_log_hex("ser_device_id:", ( char * ) &device_id, 4);
+
+  memcpy(&msg[8], &address_from->name_len, 4);
+
+  memcpy(&msg[12], address_from->name, address_from->name_len);
+
+  es_log_hex("address: ", address_from->name, address_from->name_len);
+
+  size_t idx = 12 + address_from->name_len;
+  memcpy(&msg[idx], &pre_key_id, 4);
+
+  idx += 4;
+  esc_buf *b;
+  ec_public_key_serialize(&b, pre_key_public);
+
+  if (esc_buf_get_len(b) != 33) {
+    return "bad_pre_key_public";
+  }
+  
+  memcpy(&msg[idx], esc_buf_get_data(b), 33);
+  esc_buf_free(b);
+
+  idx += 33;
+  memcpy(&msg[idx], &signed_pre_key_id, 4);
+
+  idx += 4;
+  ec_public_key_serialize(&b, signed_pre_key_public);
+
+  if (esc_buf_get_len(b) != 33) {
+    return "bad_signed_pre_key_public";
+  }
+  memcpy(&msg[idx], esc_buf_get_data(b), 33);
+  esc_buf_free(b);
+
+  idx += 33;
+  memcpy(&msg[idx], &signed_pre_key_signature_len, 4);
+
+  idx += 4;
+  memcpy(&msg[idx], signed_pre_key_signature, signed_pre_key_signature_len);
+
+  idx += signed_pre_key_signature_len;
+  ec_public_key_serialize(&b, identity_key);
+
+  if (esc_buf_get_len(b) != 33) {
+    return "bad_identity_key";
+  }
+
+  memcpy(&msg[idx], esc_buf_get_data(b), 33);
+
+  esc_buf_free(b);
+
+  idx += 33;
+
+  if (idx != response_len) {
+    return "bad_serialisation_of_bundle";
+  }
+
+  
+
+  *buf = signal_buffer_create((uint8_t *) msg, response_len);
+
+  return NULL;
+}
+
+// Alice initate session with Bob
+const char * esc_handshake_initiate(esc_address *sender_addr_p, esc_address *recipient_addr_p, esc_context * ctx_p, session_cipher **cipher, session_builder **builder, esc_buf **response) {
+    const char *err_msg;
+    int result;
+
+    //* Create the session builder * /
+    session_builder *alice_session_builder = NULL;
     result = session_builder_create(&alice_session_builder, ctx_p->store_context_p, recipient_addr_p, ctx_p->global_context_p);
+  
+    //* Create the session ciphers * /
+    session_cipher *alice_session_cipher = NULL;
+    result = session_cipher_create(&alice_session_cipher, ctx_p->store_context_p, recipient_addr_p, ctx_p->global_context_p);
+    if (result < 0) {
+      return "cant_create_session_cipher";
+    }
 
-    session_pre_key_bundle *alice_pre_key_bundle = create_pre_key_bundle(ctx_p);    
+    session_pre_key_bundle *alice_pre_key_bundle;
+    err_msg = create_pre_key_bundle(sender_addr_p, ctx_p, &alice_pre_key_bundle);
+    if (err_msg!=NULL) {
+      return err_msg;
+    }
+
+    esc_buf *message;
+    
+    err_msg = session_pre_key_bundle_serialize(alice_pre_key_bundle, sender_addr_p, ctx_p, &message);
+    if (err_msg!=NULL) {
+      // TODO: Clean resources
+      return err_msg;
+    }
+    
+    *builder = alice_session_builder;
+    *response = message;
+    *cipher = alice_session_cipher;
+
+  return NULL;
+}
+
+// Bob accepts bundle from Alice
+const char * esc_handshake_accept(esc_buf * msg_data_p, esc_address * sender_addr_p, esc_context * ctx_p, session_cipher **cipher, session_builder **builder, esc_address ** address_from_p, esc_buf **response) {
+    int result;
+    const char *err_msg = NULL;
+
+    session_pre_key_bundle *alice_pre_key_bundle = NULL;
+    esc_address *address_from = NULL;
+    es_log("1");
+    result = session_pre_key_bundle_deserialize(msg_data_p, ctx_p, &alice_pre_key_bundle, &address_from);
+    if (result!= 0) {
+      free(address_from);
+      return "bad_handshake";
+    }
+    
+    session_builder *bob_session_builder = NULL;
+    result = session_builder_create(&bob_session_builder, ctx_p->store_context_p, address_from, ctx_p->global_context_p);
+    if (result!=0) {
+      return "cant_make_session_builder";
+    }
 
     //* Create the session ciphers * /
-    session_cipher *alice_session_cipher = 0;
-    result = session_cipher_create(&alice_session_cipher, ctx_p->store_context_p, recipient_addr_p, ctx_p->global_context_p);
+    session_cipher *bob_session_cipher = NULL;
+    result = session_cipher_create(&bob_session_cipher, ctx_p->store_context_p, address_from, ctx_p->global_context_p);
+    if (result!=0) {
+      return "cant_make_session_cipher";
+    }
+   
+    result = session_builder_process_pre_key_bundle(bob_session_builder, alice_pre_key_bundle);
+    if (result!=0) {
+      std::string *c = new std::string(std::to_string(result));
+      return c->c_str();
+    }
 
-    esc_handshake handshake;
-    handshake.session_builder_p = alice_session_builder;
+    session_pre_key_bundle *bob_pre_key_bundle;
+    err_msg = create_pre_key_bundle(sender_addr_p, ctx_p, &bob_pre_key_bundle);
+    if (err_msg!=NULL) {
+      return err_msg;
+    }
+
+
+    esc_buf *message;
+    err_msg = session_pre_key_bundle_serialize(bob_pre_key_bundle, sender_addr_p, ctx_p, &message);
+    if (err_msg!=NULL) {
+      return err_msg;
+    }    
+
+    *builder = bob_session_builder;
+    *response = message;
+    *cipher = bob_session_cipher;
+    *address_from_p = address_from; 
+
+  return NULL;
+}
+
+// Alice gets Bob's bundle
+const char * esc_handshake_acknowledge(esc_buf * msg_data_p, session_builder *builder, esc_context * ctx_p, session_cipher **cipher, esc_address **address_from_p) {
+    int result;
+    const char *err_msg = NULL;
+
+    session_pre_key_bundle *bob_pre_key_bundle = NULL;
+    esc_address *address_from = NULL;
+
+    result = session_pre_key_bundle_deserialize(msg_data_p, ctx_p, &bob_pre_key_bundle, &address_from);
+    if (result!= 0) {
+      free(address_from);
+      return "bad_handshake";
+    }
     
+    session_builder *alice_session_builder = NULL;
+    result = session_builder_create(&alice_session_builder, ctx_p->store_context_p, address_from, ctx_p->global_context_p);
+    if (result!=0) {
+      return "cant_make_session_builder";
+    }
 
+    //* Create the session ciphers * /
+    session_cipher *alice_session_cipher = NULL;
+    result = session_cipher_create(&alice_session_cipher, ctx_p->store_context_p, address_from, ctx_p->global_context_p);
+    if (result!=0) {
+      return "cant_make_session_cipher";
+    }
 
-  return -1;
+    esc_address *address = (esc_address *) malloc(sizeof(esc_address));
+
+    *address_from_p = address_from;
+    *cipher = alice_session_cipher;
+
+    return NULL;
 }
 
-int esc_handshake_accept(esc_buf * msg_data_p, esc_address * sender_addr_p, esc_context * ctx_p, esc_handshake ** handshake_response_pp) {
-
-    session_builder *alice_session_builder = 0;
-    result = session_builder_create(&alice_session_builder, alice_store, &bob_address, store->);
-
-
-    //* Process the pre key bundles * /
-    result = session_builder_process_pre_key_bundle(alice_session_builder, bob_pre_key_bundle);
-
-    //* Create the session cipher and encrypt the message * /
-    session_cipher *cipher;
-    session_cipher_create(&cipher, store_context, &address, store->);
-
-  return -1;
-}
-
-int esc_handshake_acknowledge(esc_buf * msg_data_p, esc_handshake * handshake_p, esc_context * ctx_p) {
-    return -1;
-}
-*/
 
 /**
 void init() {
