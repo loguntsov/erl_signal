@@ -820,6 +820,7 @@ const char * esc_message_decrypt_from_serialized (esc_buf * msg_p, esc_address *
   //FIXME: check message type
 
   pre_key_signal_message * ciphertext_p = NULL;
+  signal_message * shortciphertext_p = NULL;
   session_cipher * cipher_p = NULL;
   esc_buf * plaintext_buf_p = NULL;
 
@@ -855,19 +856,28 @@ const char * esc_message_decrypt_from_serialized (esc_buf * msg_p, esc_address *
   es_log_hex("des: ", (char *) esc_buf_get_data(msg_p), esc_buf_get_len(msg_p));
 
   ret_val = pre_key_signal_message_deserialize(&ciphertext_p, esc_buf_get_data(msg_p), esc_buf_get_len(msg_p), ctx_p->global_context_p);
-  if (ret_val) {
-    std::string *c = new std::string(std::to_string(ret_val));
-    err_msg = c->c_str(); // "failed to deserialize whisper msg";
-    goto cleanup;
-  }
-  ret_val = session_cipher_decrypt_pre_key_signal_message(cipher_p, ciphertext_p, NULL, &plaintext_buf_p);
-  if (ret_val) {
-    err_msg = (new std::string(std::to_string(ret_val)))->c_str();     
-    //err_msg = "failed to decrypt cipher message";
-    goto cleanup;
-  }
+  if (ret_val == 0 ) {
+    ret_val = session_cipher_decrypt_pre_key_signal_message(cipher_p, ciphertext_p, NULL, &plaintext_buf_p);
+    if (ret_val) {
+      err_msg = (new std::string(std::to_string(ret_val)))->c_str();     
+      //err_msg = "failed to decrypt cipher message";
+      goto cleanup;
+    }
+  } else {
+    ret_val = signal_message_deserialize(&shortciphertext_p, esc_buf_get_data(msg_p), esc_buf_get_len(msg_p), ctx_p->global_context_p);
+    if (ret_val == 0 ) {
+      ret_val = session_cipher_decrypt_signal_message(cipher_p, shortciphertext_p, NULL, &plaintext_buf_p);
+      if (ret_val!=0) {
+        err_msg = "cant_decrypt_signal_message";
+        goto cleanup;
+      }
+    } else {
+      err_msg = "uknown_type_of_message";
+      goto cleanup;      
+    }
+  }    
 
-  *plaintext_pp = signal_buffer_copy(plaintext_buf_p);
+  *plaintext_pp = signal_buffer_copy(plaintext_buf_p);  
 
 cleanup:
   if (err_msg!=NULL) {
@@ -876,6 +886,7 @@ cleanup:
 
   session_cipher_free(cipher_p);
   SIGNAL_UNREF(ciphertext_p);
+  SIGNAL_UNREF(shortciphertext_p);
 
   return err_msg;
 }
