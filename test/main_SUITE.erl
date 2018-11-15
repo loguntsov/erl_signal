@@ -23,7 +23,8 @@ end_per_testcase(_TestCaseName, _Config) ->
     _Config.
 
 all() -> [
-    main_test
+    main_test,
+    bad_handshake_accept_test
 ].
 
 main_test(_) ->
@@ -47,7 +48,7 @@ main_test(_) ->
     { ok, AliceCipher, AliceSessionBuilder, AliceHandshake } = erl_signal_nif:handshake_initiate(Alice, AliceAddress, BobAddress),
     true = is_binary(AliceHandshake),
 
-    { ok, BobCipher, BobSessionBuilder, AliceAddress, BobHandshake } = erl_signal_nif:handshake_accept(Bob, BobAddress, AliceHandshake),
+    { ok, BobCipher, BobSessionBuilder, AliceAddress, BobHandshake } = erl_signal_nif:handshake_accept(Bob, BobAddress, binary:copy(AliceHandshake)),
 
     true = (BobHandshake /= AliceHandshake),
     true = is_binary(BobHandshake),
@@ -71,4 +72,14 @@ main_test(_) ->
 
     ok.
 
-    
+bad_handshake_accept_test(_) ->
+    { ok, Alice } = erl_signal_nif:new(),
+    ok = erl_signal_nif:generate_identity_keys(Alice),
+    AliceAddress = #es_address{
+        name = <<"alice">>,
+        device_id = 5
+    },
+
+    {error,bad_handshake} = erl_signal_nif:handshake_accept(Alice, AliceAddress, <<"this is bad handshake">>),
+
+    ok.

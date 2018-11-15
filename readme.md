@@ -3,6 +3,7 @@
 ## Requirements
 
 sudo apt-get install libgcrypt20-dev
+
 sudo apt-get install gcc-multilib g++-multilib
 
 ## BUILD

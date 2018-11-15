@@ -858,9 +858,9 @@ const char * esc_message_decrypt_from_serialized (esc_buf * msg_p, esc_address *
   ret_val = pre_key_signal_message_deserialize(&ciphertext_p, esc_buf_get_data(msg_p), esc_buf_get_len(msg_p), ctx_p->global_context_p);
   if (ret_val == 0 ) {
     ret_val = session_cipher_decrypt_pre_key_signal_message(cipher_p, ciphertext_p, NULL, &plaintext_buf_p);
-    if (ret_val) {
-      err_msg = (new std::string(std::to_string(ret_val)))->c_str();     
-      //err_msg = "failed to decrypt cipher message";
+    if (ret_val != 0) {
+      //err_msg = (new std::string(std::to_string(ret_val)))->c_str();     
+      err_msg = "cant_decrypt_signal_message";
       goto cleanup;
     }
   } else {
@@ -1404,18 +1404,23 @@ int session_pre_key_bundle_deserialize(esc_buf *buf, esc_context *ctx_p, session
     char *name = (char *) malloc(username_len+1);    
 
     memset(name, 0, username_len+1);
+
+    if (12+username_len>buf_len) {
+        return -10000;
+    }
+
     memcpy(name, &msg[12], username_len);
 
     //es_log_hex("address: ", name, username_len);    
 
     uint16_t idx = 12 + username_len;
-    if (idx>buf_len) {
+    if (idx+4>buf_len) {
         return -10000;
     }
     memcpy(&pre_key_id, &msg[idx], 4);
 
     idx += 4;
-    if (idx>buf_len) {
+    if (idx+33>buf_len) {
         return -10000;
     }
     result = curve_decode_point(&pre_key_public, &msg[idx], 33, ctx_p->global_context_p);
@@ -1424,13 +1429,13 @@ int session_pre_key_bundle_deserialize(esc_buf *buf, esc_context *ctx_p, session
     }
 
     idx += 33;
-    if (idx>buf_len) {
+    if (idx+4>buf_len) {
         return -10000;
     }
     memcpy(&signed_pre_key_id, &msg[idx], 4);
 
     idx += 4;
-    if (idx>buf_len) {
+    if (idx+33>buf_len) {
         return -10000;
     }
 
@@ -1440,13 +1445,13 @@ int session_pre_key_bundle_deserialize(esc_buf *buf, esc_context *ctx_p, session
     }
     
     idx += 33;
-    if (idx>buf_len) {
+    if (idx+4>buf_len) {
         return -10000;
     }
     memcpy(&signed_pre_key_signature_len, &msg[idx], 4);
 
     idx += 4;
-    if (idx>buf_len) {
+    if (idx+signed_pre_key_signature_len>buf_len) {
         return -10000;
     }
 
@@ -1456,7 +1461,7 @@ int session_pre_key_bundle_deserialize(esc_buf *buf, esc_context *ctx_p, session
 
     memcpy(signed_pre_key_signature, &msg[idx], signed_pre_key_signature_len);
     idx += signed_pre_key_signature_len;
-    if (idx>buf_len) {
+    if (idx+33>buf_len) {
         return -10000;
     }
 
@@ -1465,7 +1470,7 @@ int session_pre_key_bundle_deserialize(esc_buf *buf, esc_context *ctx_p, session
       return result;
     }
 
-    idx+= 33;
+    idx += 33;
     int response_len = 123+username_len+signed_pre_key_signature_len;    
     if (idx != response_len) {
       es_log(std::string(std::to_string(idx)).c_str());
@@ -1498,6 +1503,7 @@ int session_pre_key_bundle_deserialize(esc_buf *buf, esc_context *ctx_p, session
     *pre_key_bundle = bundle;
     *address_from = address;
 
+    es_log("a2");
     return 0;
 }
 
