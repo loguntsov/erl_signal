@@ -204,6 +204,10 @@ ERL_NIF_TERM nif_esc_handshake_initiate(ErlNifEnv* env, int argc, const ERL_NIF_
         return enif_raise_exception(env, make_response(env, "error", err_msg));
     }
 
+    SIGNAL_UNREF(cipher);
+    SIGNAL_UNREF(builder);
+
+/*
     session_cipher_resource * cipher_res_p = (session_cipher_resource*) enif_alloc_resource(SESSION_CIPHER_RESOURCE, sizeof(session_cipher_resource));
     cipher_res_p->session_cipher_p = cipher;
     ERL_NIF_TERM cipher_term = enif_make_resource(env, cipher_res_p);
@@ -214,6 +218,7 @@ ERL_NIF_TERM nif_esc_handshake_initiate(ErlNifEnv* env, int argc, const ERL_NIF_
     ERL_NIF_TERM builder_term = enif_make_resource(env, builder_res_p);
     //enif_release_resource(builder_res_p);    
 
+*/
     ERL_NIF_TERM response_bin;
     ErlNifBinary binary;
     enif_alloc_binary(esc_buf_get_len(response), &binary);
@@ -223,10 +228,10 @@ ERL_NIF_TERM nif_esc_handshake_initiate(ErlNifEnv* env, int argc, const ERL_NIF_
     esc_buf_free(response);
     //free(esc_buf_get_data(response));    
 
-    return enif_make_tuple4(env, 
+    return enif_make_tuple2(env, 
         enif_make_atom(env, "ok"),
-        cipher_term,
-        builder_term,
+//        cipher_term,
+//        builder_term,
         response_bin
     );
 
@@ -269,6 +274,10 @@ ERL_NIF_TERM nif_esc_handshake_accept(ErlNifEnv* env, int argc, const ERL_NIF_TE
         return make_response(env, "error", err_msg);
     }
 
+    SIGNAL_UNREF(cipher);
+    SIGNAL_UNREF(builder);
+
+/*
     session_cipher_resource * cipher_res_p = (session_cipher_resource*) enif_alloc_resource(SESSION_CIPHER_RESOURCE, sizeof(session_cipher_resource));
     cipher_res_p->session_cipher_p = cipher;
     ERL_NIF_TERM cipher_term = enif_make_resource(env, cipher_res_p);
@@ -278,7 +287,7 @@ ERL_NIF_TERM nif_esc_handshake_accept(ErlNifEnv* env, int argc, const ERL_NIF_TE
     builder_res_p->session_builder_p = builder;
     ERL_NIF_TERM builder_term = enif_make_resource(env, builder_res_p);
     //enif_release_resource(builder_res_p);    
-
+*/
     ERL_NIF_TERM response_bin;
     ErlNifBinary binary;
     enif_alloc_binary(esc_buf_get_len(response), &binary);
@@ -287,10 +296,10 @@ ERL_NIF_TERM nif_esc_handshake_accept(ErlNifEnv* env, int argc, const ERL_NIF_TE
 
     // es_log_hex("handshake: ", (char * ) binary.data, binary.size);
 
-    return enif_make_tuple5(env, 
+    return enif_make_tuple3(env, 
         enif_make_atom(env, "ok"),
-        cipher_term,
-        builder_term,
+//        cipher_term,
+//        builder_term,
         construct_es_address_record(env, address_from_p),
         response_bin
     );

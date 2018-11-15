@@ -45,10 +45,10 @@ main_test(_) ->
     false = erl_signal_nif:is_session_exists_initiated(Alice, BobAddress),
     false = erl_signal_nif:is_session_exists_initiated(Bob, AliceAddress),
 
-    { ok, AliceCipher, AliceSessionBuilder, AliceHandshake } = erl_signal_nif:handshake_initiate(Alice, AliceAddress, BobAddress),
+    { ok, AliceHandshake } = erl_signal_nif:handshake_initiate(Alice, AliceAddress, BobAddress),
     true = is_binary(AliceHandshake),
 
-    { ok, BobCipher, BobSessionBuilder, AliceAddress, BobHandshake } = erl_signal_nif:handshake_accept(Bob, BobAddress, binary:copy(AliceHandshake)),
+    { ok, AliceAddress, BobHandshake } = erl_signal_nif:handshake_accept(Bob, BobAddress, binary:copy(AliceHandshake)),
 
     true = (BobHandshake /= AliceHandshake),
     true = is_binary(BobHandshake),
@@ -81,5 +81,6 @@ bad_handshake_accept_test(_) ->
     },
 
     {error,bad_handshake} = erl_signal_nif:handshake_accept(Alice, AliceAddress, <<"this is bad handshake">>),
+    {error,bad_handshake} = erl_signal_nif:handshake_accept(Alice, AliceAddress, <<"">>),
 
     ok.
