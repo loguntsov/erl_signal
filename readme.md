@@ -2,9 +2,7 @@
 
 ## Requirements
 
-sudo apt-get install libgcrypt20-dev
-
-sudo apt-get install gcc-multilib g++-multilib
+sudo apt-get install libgcrypt20-dev gcc-multilib g++-multilib libglib2.0-dev cmake
 
 ## BUILD
 
