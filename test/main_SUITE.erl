@@ -84,3 +84,34 @@ bad_handshake_accept_test(_) ->
     {error,bad_handshake} = erl_signal_nif:handshake_accept(Alice, AliceAddress, <<"">>),
 
     ok.
+
+initiate_without_acknowledge(_) ->
+    { ok, Alice } = erl_signal_nif:new(),
+    ok = erl_signal_nif:generate_identity_keys(Alice),
+    AliceAddress = #es_address{
+        name = <<"alice">>,
+        device_id = 5
+    },
+
+    { ok, Bob } = erl_signal_nif:new(),
+    ok = erl_signal_nif:generate_identity_keys(Bob),
+    BobAddress = #es_address{
+       name = <<"bob">>,
+       device_id = 2
+    },
+
+    { ok, AliceHandshake } = erl_signal_nif:handshake_initiate(Alice, AliceAddress, BobAddress),
+    { ok, AliceAddress, _BobHandshake } = erl_signal_nif:handshake_accept(Bob, BobAddress, binary:copy(AliceHandshake)),
+
+    true = erl_signal_nif:is_session_exists_initiated(Bob, AliceAddress),
+
+    Bin2 = <<"Hello from Bob">>,
+    { ok, EncryptedHello2 } = erl_signal_nif:encode(Bob, AliceAddress, Bin2),
+    { ok, Bin2 } = erl_signal_nif:decode(Alice, BobAddress, EncryptedHello2),
+
+    true = erl_signal_nif:is_session_exists_initiated(Alice, BobAddress),
+
+    true = erl_signal_nif:is_session_exists_initiated(Alice, BobAddress),
+
+    ok.
+
