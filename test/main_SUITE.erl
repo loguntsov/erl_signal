@@ -24,7 +24,8 @@ end_per_testcase(_TestCaseName, _Config) ->
 
 all() -> [
     main_test,
-    bad_handshake_accept_test
+    bad_handshake_accept_test,
+    initiate_without_acknowledge
 ].
 
 main_test(_) ->

@@ -252,6 +252,7 @@ void esc_default_log(int level, const char *message, size_t len, void *user_data
 }
 
 void esc_log(esc_context * ctx_p, int level, const char * format, ...) {
+/*
   if(ctx_p->log_func) {
     va_list args;
     va_list args_cpy;
@@ -269,6 +270,7 @@ void esc_log(esc_context * ctx_p, int level, const char * format, ...) {
       ctx_p->log_func(level, msg, len, ctx_p);
     }
   }
+*/
 }
 
 int esc_mutexes_create_and_init(esc_mutexes ** mutexes_pp) {

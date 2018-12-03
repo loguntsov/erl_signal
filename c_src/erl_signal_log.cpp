@@ -5,13 +5,15 @@
 #include "erl_signal_log.h"
 
 void es_log(const char * message) {
+/*
     if (message != NULL) {
         std::cout << message << "\n" << std::flush ;
     }
-    
+*/
 }
 
 void es_log_hex(const char *message, const char *data, int len) {
+/*
     if (message != NULL) {
         std::cout << message << len << "=";
     }
@@ -27,5 +29,6 @@ void es_log_hex(const char *message, const char *data, int len) {
         std::cout << "\n";
     }
     std::cout << std::flush;
+*/
 }
     
